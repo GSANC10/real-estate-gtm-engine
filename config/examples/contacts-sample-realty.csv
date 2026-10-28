@@ -1,0 +1,3 @@
+email,full_name,organization,residence_location,language_preference,need_category,need_note,property_location,recorded_at,source,may_mention_inquiry
+jordan.lee@mail.example,Jordan Lee,Cedar Lane Studio,"Seattle, WA",,buy_primary_residence,Looking for a two-bedroom condo in Pasadena.,"Pasadena, CA",2026-10-22,website inquiry,true
+quinn.harper@mail.example,Quinn Harper,,"Altadena, CA",,sell_primary_residence,I may sell my bungalow in Altadena and would like advice.,"Altadena, CA",2026-10-19,phone inquiry,false

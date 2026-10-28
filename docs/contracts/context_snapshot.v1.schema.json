@@ -1,0 +1,92 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "config_version_id": {
+      "format": "uuid",
+      "title": "Config Version Id",
+      "type": "string"
+    },
+    "input_refs": {
+      "additionalProperties": true,
+      "title": "Input Refs",
+      "type": "object"
+    },
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "model_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Model Id"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    },
+    "prompt_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Prompt Sha256"
+    },
+    "prompt_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Prompt Version"
+    },
+    "role": {
+      "title": "Role",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "context_snapshot.v1",
+      "default": "context_snapshot.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tool_schema_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tool Schema Version"
+    }
+  },
+  "required": [
+    "job_id",
+    "role",
+    "payload",
+    "prompt_version",
+    "prompt_sha256",
+    "model_id",
+    "tool_schema_version",
+    "config_version_id",
+    "input_refs"
+  ],
+  "title": "ContextSnapshot",
+  "type": "object"
+}

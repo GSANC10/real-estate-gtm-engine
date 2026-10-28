@@ -1,0 +1,6 @@
+email,full_name,organization,residence_location,language_preference,need_category,need_note,property_location,recorded_at,source,may_mention_inquiry
+jordan.lee@mail.example,Jordan Lee,Cedar Lane Studio,"Seattle, WA",,buy_primary_residence,I am looking for a three-bedroom home in Torrance. Can someone help with my search?,"Torrance, CA",2026-10-20,website inquiry,true
+avery.park@mail.example,Avery Park,,"Torrance, CA",,buy_primary_residence,Looking for a condo in Sacramento near my new job.,"Sacramento, CA",2026-10-12,open house sign-in,false
+morgan.diaz@mail.example,Morgan Diaz,,"Redondo Beach, CA",,sell_primary_residence,Thinking about selling my house in Redondo Beach.,"Redondo Beach, CA",2025-11-02,website inquiry,true
+riley.chen@mail.example,Riley Chen,,"Gardena, CA",,buy_primary_residence,We would like help buying a home.,,2026-10-15,referral form,true
+sam.okafor@mail.example,Sam Okafor,,"Hermosa Beach, CA",,buy_primary_residence,Interested in homes in Hermosa Beach.,"Hermosa Beach, CA",2026-10-18,website inquiry,true

@@ -1,0 +1,236 @@
+{
+  "$defs": {
+    "OutreachContext": {
+      "additionalProperties": false,
+      "properties": {
+        "may_mention_inquiry": {
+          "title": "May Mention Inquiry",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "may_mention_inquiry"
+      ],
+      "title": "OutreachContext",
+      "type": "object"
+    },
+    "SenderFact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^sender_fact_[0-9]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 200,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "SenderFact",
+      "type": "object"
+    },
+    "WriterCampaign": {
+      "additionalProperties": false,
+      "properties": {
+        "cta": {
+          "title": "Cta",
+          "type": "string"
+        },
+        "max_words": {
+          "title": "Max Words",
+          "type": "integer"
+        },
+        "offer": {
+          "title": "Offer",
+          "type": "string"
+        },
+        "tone_reference": {
+          "title": "Tone Reference",
+          "type": "string"
+        },
+        "tone_rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tone Rules",
+          "type": "array"
+        }
+      },
+      "required": [
+        "offer",
+        "cta",
+        "tone_rules",
+        "tone_reference",
+        "max_words"
+      ],
+      "title": "WriterCampaign",
+      "type": "object"
+    },
+    "WriterFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "recorded_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Recorded At"
+        },
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 200,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "refs",
+        "recorded_at"
+      ],
+      "title": "WriterFinding",
+      "type": "object"
+    },
+    "WriterRecipient": {
+      "additionalProperties": false,
+      "properties": {
+        "first_name": {
+          "title": "First Name",
+          "type": "string"
+        },
+        "language_preference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Language Preference"
+        }
+      },
+      "required": [
+        "first_name",
+        "language_preference"
+      ],
+      "title": "WriterRecipient",
+      "type": "object"
+    },
+    "WriterSender": {
+      "additionalProperties": false,
+      "properties": {
+        "brokerage": {
+          "title": "Brokerage",
+          "type": "string"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/SenderFact"
+          },
+          "title": "Facts",
+          "type": "array"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "title",
+        "brokerage",
+        "facts"
+      ],
+      "title": "WriterSender",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "campaign": {
+      "$ref": "#/$defs/WriterCampaign"
+    },
+    "contradictions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Contradictions",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/WriterFinding"
+      },
+      "maxItems": 5,
+      "title": "Findings",
+      "type": "array"
+    },
+    "outreach_context": {
+      "$ref": "#/$defs/OutreachContext"
+    },
+    "prior_outreach": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Prior Outreach",
+      "type": "array"
+    },
+    "recipient": {
+      "$ref": "#/$defs/WriterRecipient"
+    },
+    "schema_version": {
+      "const": "writer.input.v1",
+      "default": "writer.input.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sender": {
+      "$ref": "#/$defs/WriterSender"
+    },
+    "unknowns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknowns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "recipient",
+    "findings",
+    "unknowns",
+    "contradictions",
+    "sender",
+    "campaign",
+    "outreach_context"
+  ],
+  "title": "WriterInput",
+  "type": "object"
+}

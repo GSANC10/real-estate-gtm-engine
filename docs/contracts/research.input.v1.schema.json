@@ -1,0 +1,205 @@
+{
+  "$defs": {
+    "RecordedNeed": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "pattern": "^[a-z][a-z_]{2,39}$",
+          "title": "Category",
+          "type": "string"
+        },
+        "note": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        },
+        "property_location": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Property Location"
+        },
+        "recorded_at": {
+          "format": "date",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "note",
+        "recorded_at",
+        "source"
+      ],
+      "title": "RecordedNeed",
+      "type": "object"
+    },
+    "ResearchCampaign": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_max_age_days": {
+          "title": "Evidence Max Age Days",
+          "type": "integer"
+        },
+        "need_categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Need Categories",
+          "type": "array"
+        },
+        "service_area": {
+          "$ref": "#/$defs/ServiceArea"
+        }
+      },
+      "required": [
+        "service_area",
+        "need_categories",
+        "evidence_max_age_days"
+      ],
+      "title": "ResearchCampaign",
+      "type": "object"
+    },
+    "ResearchLead": {
+      "additionalProperties": false,
+      "properties": {
+        "full_name": {
+          "title": "Full Name",
+          "type": "string"
+        },
+        "lead_id": {
+          "format": "uuid",
+          "title": "Lead Id",
+          "type": "string"
+        },
+        "organization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Organization"
+        },
+        "recorded_need": {
+          "$ref": "#/$defs/RecordedNeed"
+        },
+        "residence_location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Residence Location"
+        }
+      },
+      "required": [
+        "lead_id",
+        "full_name",
+        "organization",
+        "residence_location",
+        "recorded_need"
+      ],
+      "title": "ResearchLead",
+      "type": "object"
+    },
+    "ResearchLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "page_chars": {
+          "title": "Page Chars",
+          "type": "integer"
+        },
+        "page_reads": {
+          "title": "Page Reads",
+          "type": "integer"
+        },
+        "results_per_search": {
+          "title": "Results Per Search",
+          "type": "integer"
+        },
+        "searches": {
+          "title": "Searches",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "searches",
+        "results_per_search",
+        "page_reads",
+        "page_chars"
+      ],
+      "title": "ResearchLimits",
+      "type": "object"
+    },
+    "ServiceArea": {
+      "additionalProperties": false,
+      "properties": {
+        "places": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Places",
+          "type": "array"
+        },
+        "postal_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Postal Codes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "places"
+      ],
+      "title": "ServiceArea",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "campaign": {
+      "$ref": "#/$defs/ResearchCampaign"
+    },
+    "lead": {
+      "$ref": "#/$defs/ResearchLead"
+    },
+    "limits": {
+      "$ref": "#/$defs/ResearchLimits"
+    },
+    "schema_version": {
+      "const": "research.input.v1",
+      "default": "research.input.v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "lead",
+    "campaign",
+    "limits"
+  ],
+  "title": "ResearchInput",
+  "type": "object"
+}

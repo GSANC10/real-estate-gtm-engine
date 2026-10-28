@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "OutreachContext": {
+      "additionalProperties": false,
+      "properties": {
+        "may_mention_inquiry": {
+          "title": "May Mention Inquiry",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "may_mention_inquiry"
+      ],
+      "title": "OutreachContext",
+      "type": "object"
+    },
+    "TextRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "TextRef",
+      "type": "object"
+    },
+    "WriterClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Refs",
+          "type": "array"
+        },
+        "sentence": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Sentence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sentence"
+      ],
+      "title": "WriterClaim",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "body": {
+      "title": "Body",
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/WriterClaim"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/TextRef"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "outreach_context": {
+      "$ref": "#/$defs/OutreachContext"
+    },
+    "schema_version": {
+      "const": "email_check.v1",
+      "default": "email_check.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sender_facts": {
+      "items": {
+        "$ref": "#/$defs/TextRef"
+      },
+      "title": "Sender Facts",
+      "type": "array"
+    },
+    "sentences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sentences",
+      "type": "array"
+    },
+    "subject": {
+      "title": "Subject",
+      "type": "string"
+    },
+    "unknowns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknowns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "subject",
+    "body",
+    "sentences",
+    "claims",
+    "findings",
+    "sender_facts",
+    "unknowns",
+    "outreach_context"
+  ],
+  "title": "EmailCheckInput",
+  "type": "object"
+}

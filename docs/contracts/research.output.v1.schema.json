@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "Contradiction": {
+      "additionalProperties": false,
+      "properties": {
+        "citations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Citations",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "Contradiction",
+      "type": "object"
+    },
+    "IdentifiersSeen": {
+      "additionalProperties": false,
+      "properties": {
+        "location": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "organization": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Organization"
+        }
+      },
+      "title": "IdentifiersSeen",
+      "type": "object"
+    },
+    "ProposedFit": {
+      "additionalProperties": false,
+      "properties": {
+        "property_need": {
+          "enum": [
+            "met",
+            "not_met",
+            "unknown"
+          ],
+          "title": "Property Need",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 300,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "service_area": {
+          "enum": [
+            "met",
+            "not_met",
+            "unknown"
+          ],
+          "title": "Service Area",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service_area",
+        "property_need",
+        "rationale"
+      ],
+      "title": "ProposedFit",
+      "type": "object"
+    },
+    "ResearchCitation": {
+      "additionalProperties": false,
+      "properties": {
+        "identifiers_seen": {
+          "$ref": "#/$defs/IdentifiersSeen"
+        },
+        "key": {
+          "pattern": "^C[0-9]{1,3}$",
+          "title": "Key",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "quote": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "import_record",
+            "web"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "key",
+        "source",
+        "quote"
+      ],
+      "title": "ResearchCitation",
+      "type": "object"
+    },
+    "ResearchFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "citations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Citations",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "use": {
+          "enum": [
+            "qualification",
+            "personalization"
+          ],
+          "title": "Use",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "citations",
+        "use"
+      ],
+      "title": "ResearchFinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "citations": {
+      "items": {
+        "$ref": "#/$defs/ResearchCitation"
+      },
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Citations",
+      "type": "array"
+    },
+    "contradictions": {
+      "items": {
+        "$ref": "#/$defs/Contradiction"
+      },
+      "maxItems": 5,
+      "title": "Contradictions",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/ResearchFinding"
+      },
+      "maxItems": 10,
+      "title": "Findings",
+      "type": "array"
+    },
+    "proposed_fit": {
+      "$ref": "#/$defs/ProposedFit"
+    },
+    "unknowns": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Unknowns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "citations",
+    "findings",
+    "proposed_fit"
+  ],
+  "title": "ResearchOutput",
+  "type": "object"
+}

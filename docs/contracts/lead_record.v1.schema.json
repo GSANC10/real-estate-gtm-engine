@@ -1,0 +1,127 @@
+{
+  "$defs": {
+    "RecordedNeed": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "pattern": "^[a-z][a-z_]{2,39}$",
+          "title": "Category",
+          "type": "string"
+        },
+        "note": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        },
+        "property_location": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Property Location"
+        },
+        "recorded_at": {
+          "format": "date",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "note",
+        "recorded_at",
+        "source"
+      ],
+      "title": "RecordedNeed",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "email": {
+      "maxLength": 254,
+      "minLength": 3,
+      "title": "Email",
+      "type": "string"
+    },
+    "full_name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Full Name",
+      "type": "string"
+    },
+    "language_preference": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z]{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Language Preference"
+    },
+    "may_mention_inquiry": {
+      "title": "May Mention Inquiry",
+      "type": "boolean"
+    },
+    "organization": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Organization"
+    },
+    "recorded_need": {
+      "$ref": "#/$defs/RecordedNeed"
+    },
+    "residence_location": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Residence Location"
+    },
+    "schema_version": {
+      "const": "lead_record.v1",
+      "default": "lead_record.v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "email",
+    "full_name",
+    "recorded_need",
+    "may_mention_inquiry"
+  ],
+  "title": "LeadRecord",
+  "type": "object"
+}

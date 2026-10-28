@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "CheckedFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "citation_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Citation Ids",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^finding_[0-9]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "provenance": {
+          "title": "Provenance",
+          "type": "string"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Date"
+        },
+        "text": {
+          "maxLength": 200,
+          "title": "Text",
+          "type": "string"
+        },
+        "use": {
+          "enum": [
+            "qualification",
+            "personalization"
+          ],
+          "title": "Use",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "use",
+        "citation_ids",
+        "source_date",
+        "provenance"
+      ],
+      "title": "CheckedFinding",
+      "type": "object"
+    },
+    "ExcludedFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "text": {
+          "maxLength": 200,
+          "title": "Text",
+          "type": "string"
+        },
+        "use": {
+          "enum": [
+            "qualification",
+            "personalization"
+          ],
+          "title": "Use",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "use",
+        "reasons"
+      ],
+      "title": "ExcludedFinding",
+      "type": "object"
+    },
+    "OutreachContext": {
+      "additionalProperties": false,
+      "properties": {
+        "may_mention_inquiry": {
+          "title": "May Mention Inquiry",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "may_mention_inquiry"
+      ],
+      "title": "OutreachContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contradictions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Contradictions",
+      "type": "array"
+    },
+    "excluded_findings": {
+      "items": {
+        "$ref": "#/$defs/ExcludedFinding"
+      },
+      "title": "Excluded Findings",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/CheckedFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "outreach_context": {
+      "$ref": "#/$defs/OutreachContext"
+    },
+    "property_need": {
+      "enum": [
+        "met",
+        "not_met",
+        "unknown"
+      ],
+      "title": "Property Need",
+      "type": "string"
+    },
+    "qualification": {
+      "enum": [
+        "qualified",
+        "insufficient_evidence",
+        "disqualified",
+        "needs_review"
+      ],
+      "title": "Qualification",
+      "type": "string"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "research_result_id": {
+      "format": "uuid",
+      "title": "Research Result Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "checked_research.v1",
+      "default": "checked_research.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "service_area": {
+      "enum": [
+        "met",
+        "not_met",
+        "unknown"
+      ],
+      "title": "Service Area",
+      "type": "string"
+    },
+    "unknowns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknowns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "research_result_id",
+    "qualification",
+    "service_area",
+    "property_need",
+    "reasons",
+    "findings",
+    "excluded_findings",
+    "unknowns",
+    "contradictions",
+    "outreach_context"
+  ],
+  "title": "CheckedResearch",
+  "type": "object"
+}

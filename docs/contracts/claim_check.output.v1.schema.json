@@ -1,0 +1,35 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "about_person": {
+      "enum": [
+        "yes",
+        "no",
+        "unclear"
+      ],
+      "title": "About Person",
+      "type": "string"
+    },
+    "note": {
+      "maxLength": 150,
+      "title": "Note",
+      "type": "string"
+    },
+    "supports_claim": {
+      "enum": [
+        "yes",
+        "no",
+        "unclear"
+      ],
+      "title": "Supports Claim",
+      "type": "string"
+    }
+  },
+  "required": [
+    "about_person",
+    "supports_claim",
+    "note"
+  ],
+  "title": "ClaimCheckOutput",
+  "type": "object"
+}

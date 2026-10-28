@@ -1,0 +1,50 @@
+{
+  "$defs": {
+    "SentenceVerdict": {
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "default": "",
+          "maxLength": 150,
+          "title": "Note",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "supported",
+            "unsupported",
+            "overstated",
+            "not_factual"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "verdict"
+      ],
+      "title": "SentenceVerdict",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "sentences": {
+      "items": {
+        "$ref": "#/$defs/SentenceVerdict"
+      },
+      "title": "Sentences",
+      "type": "array"
+    }
+  },
+  "required": [
+    "sentences"
+  ],
+  "title": "EmailCheckOutput",
+  "type": "object"
+}

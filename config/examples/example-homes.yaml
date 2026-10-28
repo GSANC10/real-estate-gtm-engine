@@ -1,0 +1,88 @@
+# Fictional brokerage for demos and tests. Every name, address, and mailbox here is invented.
+schema_version: brokerage_config.v1
+tenant:
+  id: 11111111-1111-4111-8111-111111111111
+  slug: example-homes
+  name: Example Homes
+  kind: fictional
+brokerage:
+  name: Example Homes
+  postal_address: 100 Example Way, Torrance, CA 90501
+sender:
+  slug: taylor-morgan
+  name: Taylor Morgan
+  title: Real estate broker
+  email: taylor@examplehomes.example
+  languages: [en]
+  background: Fictional sender profile note. Kept private; never used to select or address recipients.
+  facts:
+    - id: sender_fact_1
+      text: Taylor Morgan helps buyers find homes across Torrance and the South Bay.
+      use_in_outreach: true
+    - id: sender_fact_2
+      text: Taylor Morgan has worked in residential real estate for twelve years.
+      use_in_outreach: true
+    - id: sender_fact_3
+      text: Taylor Morgan coaches a youth soccer team on weekends.
+      use_in_outreach: false
+mailbox:
+  address: taylor@examplehomes.example
+  mode: draft_only
+campaign:
+  slug: south-bay-buyers
+  name: South Bay buyers and sellers
+  service_area:
+    places: [Torrance, Redondo Beach, Hermosa Beach, Manhattan Beach, Gardena]
+    postal_codes: ["90501", "90502", "90503", "90504", "90505", "90277", "90278", "90254", "90266"]
+  need_categories: [buy_primary_residence, sell_primary_residence]
+  offer: A short call to talk through a home search or sale in the South Bay.
+  cta: Would a brief call this week be useful?
+  tone_rules:
+    - Warm and clear
+    - Short sentences
+    - No assumed prior relationship
+  tone_reference: >-
+    Hi there, thanks for getting in touch. I help people buy and sell homes in this area, and
+    I'm happy to answer questions with no pressure. Would a short call be helpful?
+  max_words: 140
+  language: en
+  evidence_max_age_days: 180
+  budget_cap_usd: "3.00"
+  footer:
+    postal_address: Example Homes, 100 Example Way, Torrance, CA 90501
+    opt_out_line: If you'd rather not hear from me, reply "no thanks" and I won't write again.
+    disclosures: ["Fictional brokerage license 00000000"]
+qualification:
+  criteria: [service_area, property_need]
+roles:
+  researcher:
+    provider: fake
+    model_id: fake-model-1
+    prompt_version: researcher.v1
+    pricing: {input_usd_per_mtok: "0.10", output_usd_per_mtok: "0.40"}
+  claim_check:
+    provider: fake
+    model_id: fake-model-1
+    prompt_version: claim_check.v1
+    pricing: {input_usd_per_mtok: "0.10", output_usd_per_mtok: "0.40"}
+  writer:
+    provider: fake
+    model_id: fake-model-1
+    prompt_version: writer.v1
+    pricing: {input_usd_per_mtok: "0.10", output_usd_per_mtok: "0.40"}
+  email_check:
+    provider: fake
+    model_id: fake-model-1
+    prompt_version: email_check.v1
+    pricing: {input_usd_per_mtok: "0.10", output_usd_per_mtok: "0.40"}
+research_tools:
+  provider: fake
+  searches: 3
+  results_per_search: 5
+  page_reads: 3
+  page_chars: 4000
+  pricing: {search_usd: "0.005", page_read_usd: "0.001"}
+limits:
+  research: {model_calls: 8, input_tokens: 12000, output_tokens: 2000, json_repairs: 1}
+  check: {model_calls: 8, input_tokens: 2000, output_tokens: 200, json_repairs: 2, web_claims: 6}
+  write: {model_calls: 4, input_tokens: 4000, output_tokens: 800, json_repairs: 1}

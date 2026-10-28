@@ -1,0 +1,64 @@
+{
+  "$defs": {
+    "WriterClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "refs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Refs",
+          "type": "array"
+        },
+        "sentence": {
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Sentence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sentence"
+      ],
+      "title": "WriterClaim",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "body": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Body",
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/WriterClaim"
+      },
+      "maxItems": 20,
+      "title": "Claims",
+      "type": "array"
+    },
+    "language": {
+      "pattern": "^[a-z]{2}$",
+      "title": "Language",
+      "type": "string"
+    },
+    "subject": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Subject",
+      "type": "string"
+    }
+  },
+  "required": [
+    "subject",
+    "body",
+    "language",
+    "claims"
+  ],
+  "title": "WriterOutput",
+  "type": "object"
+}

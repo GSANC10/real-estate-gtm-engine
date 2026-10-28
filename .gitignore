@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+
+# Private brokerage data never belongs in this public repo.
+config/private/
+*.private.yaml
+*.private.csv
+.env
+.env.*

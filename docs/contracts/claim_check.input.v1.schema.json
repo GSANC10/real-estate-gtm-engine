@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "ClaimCheckPerson": {
+      "additionalProperties": false,
+      "properties": {
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Location"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "organization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Organization"
+        }
+      },
+      "required": [
+        "name",
+        "location",
+        "organization"
+      ],
+      "title": "ClaimCheckPerson",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "claim": {
+      "maxLength": 200,
+      "title": "Claim",
+      "type": "string"
+    },
+    "person": {
+      "$ref": "#/$defs/ClaimCheckPerson"
+    },
+    "published_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Published At"
+    },
+    "quote": {
+      "maxLength": 400,
+      "title": "Quote",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "claim_check.v1",
+      "default": "claim_check.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_provenance": {
+      "title": "Source Provenance",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claim",
+    "quote",
+    "published_at",
+    "source_provenance",
+    "person"
+  ],
+  "title": "ClaimCheckInput",
+  "type": "object"
+}
