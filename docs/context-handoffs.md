@@ -1,44 +1,37 @@
 # Context handoffs
 
-Model conversations are not memory. The database is. Each job runs in a fresh model context
-that the worker builds from saved records, selected by the job's own pinned references. Passing
-an ID to a model gives it nothing. The model receives the loaded content.
+A model conversation is not memory. The database is. Each step gets a fresh model context that
+the program builds from saved records, selected by the job's own references. Passing an ID to a
+model gives it nothing; the model receives the loaded content.
 
 ## What each call receives
 | Call | Receives | Never receives | Tools |
 |---|---|---|---|
-| Researcher | One lead without its email, its recorded need and provenance, service area, need categories, tool limits | Other leads, prior transcripts, credentials | `exa_search`, `read_page` (only URLs from its own searches) |
-| Claim check | One claim, its quote, date, provenance, and the identifiers needed to tell people apart | Tools, page text beyond the quote | none |
-| Writer | Up to 5 checked findings, unknowns, contradictions, first name, stated language, sender facts marked for outreach, offer, CTA, tone | Email address, page text, excluded findings, private sender background | none |
+| Researcher | One lead without its email: name, organization, residence, recorded need, service area, need categories, tool limits | Other leads, earlier conversations, credentials | `exa_search`, `read_page` (only URLs its own searches returned) |
+| Claim check | One claim, its quote, date, source, and the identifiers needed to tell people apart | Tools, page text beyond the quote | none |
+| Writer | Up to 5 checked findings, unknowns, contradictions, first name, stated language, sender facts marked for outreach, offer, call to action, tone | Email address, page text, excluded findings, private sender background | none |
 | Email check | Subject, sentences, claim list, cited findings and sender facts, unknowns, inquiry permission | Tools | none |
 
 Facts, warnings, and contradictions are never shortened to fit. When essential context is too
 large, the job is blocked with `context_too_large`.
 
-## Handoff between jobs
-A completed stage commits its result and inserts the next job in the same transaction. The next
-job references:
-
-```
-tenant_id, campaign_id, run_id, lead_id, lead_record_id, stage, job_key,
-input_result_id, input_result_version, config_version_id, prompt_version, prompt_sha256, model_id
-```
-
-The writer job points at the exact checked result, never at "the newest research". Adding a
-newer research result or editing the campaign later does not change a queued job.
+## Handoff between steps
+A finished step saves its result and inserts the next job in the same transaction. The next job
+points at that exact result (`input_result_id`) and belongs to the same run, so it uses the same
+saved config. Adding newer research later, or editing the config file, doesn't change a queued job.
+The exact messages sent with every model call are saved in `provider_calls`.
 
 ## Fictional trace from `uv run gtm demo --fake-providers`
 Everything below is fictional. IDs are shortened to 8 characters, except in job keys.
 
 ```text
-Lead 03b62e30-8c0b-46c2-9d5c-8fef99fc4633 - state: ready_for_draft
-  record v1 c40ef7f2: Jordan Lee, lives in Seattle, WA; buy_primary_residence in Torrance, CA; recorded 2026-10-20 via website inquiry
+Lead 25ea7308-ffab-4d85-9697-5ffcd6566746 - state: ready_for_draft
+  record v1 5ac72ae5: Jordan Lee, lives in Seattle, WA; buy_primary_residence in Torrance, CA; recorded 2026-10-20 via website inquiry
 
-[research] job 47342c23 completed (attempts 1)
-  key: research/c40ef7f2-c541-4fb6-92e7-87a639b731c1/675268cbdecdf261b270ea9b
-  pinned: config v1 | model fake-model-1 | prompt researcher.v1 sha 2d563412014f
-  provider calls (6, $0.007487): researcher:succeeded, exa_search:succeeded, researcher:succeeded, read_page:succeeded, read_page:succeeded, researcher:succeeded
-  -> research v1 45550b13
+[research] job ce2fa604 completed (attempts 1)
+  key: research/5ac72ae5-7311-4d35-a78f-b8b8450ce3db/r0
+  provider calls (6, $0.007487, model fake-model-1): researcher:succeeded, exa_search:succeeded, researcher:succeeded, read_page:succeeded, read_page:succeeded, researcher:succeeded
+  -> research v1 ef8e84d1
      C1 import_record supplied record (recorded_at 2026-10-20): "I am looking for a three-bedroom home in Torrance. Can someone help with my search?"
      C2 web https://news.example/2026/09/community-design-day (published_at 2026-09-14): "Jordan Lee, a product designer at Cedar Lane Studio in Seattle, led a workshop on clear signs for public parks."
      C3 web https://runners.example/results/riverfront-10k (published_at 2026-08-02): "Jordan Lee of Portland finished third in the open division."
@@ -47,11 +40,10 @@ Lead 03b62e30-8c0b-46c2-9d5c-8fef99fc4633 - state: ready_for_draft
      F3 [personalization] Jordan Lee of Portland finished third in the open division. <- C3
      unknowns: Budget, Purchase timeline
 
-[check] job 17ea8aa5 completed (attempts 1)
-  key: check/45550b13-5aab-4dc7-a59b-91869d91b448/30854683df6527460122ae73
-  pinned: config v1 | model fake-model-1 | prompt claim_check.v1 sha 1de1cb8dade4 | input research 45550b13 v1
-  provider calls (1, $0.000041): claim_check:succeeded
-  -> checked_research v1 4d725319 outcome=qualified
+[check] job d3a59920 completed (attempts 1)
+  key: check/ef8e84d1-aa0f-4f17-9c78-e6fca8c8ca5c
+  provider calls (1, $0.000041, model fake-model-1): claim_check:succeeded
+  -> checked_research v1 6ad31e55 outcome=qualified
      F1/C1: identity=pass recency=pass meaning=pass -> pass
      F2/C2: identity=pass recency=pass meaning=pass -> pass
      F3/C3: identity=fail recency=pass meaning=not_checked -> FAIL identity_conflict,claim_not_checked
@@ -60,11 +52,10 @@ Lead 03b62e30-8c0b-46c2-9d5c-8fef99fc4633 - state: ready_for_draft
      kept finding_2 [personalization]: Jordan Lee, a product designer at Cedar Lane Studio in Seattle, led a workshop on clear signs for public parks.
      excluded [personalization]: Jordan Lee of Portland finished third in the open division. (identity_conflict, claim_not_checked)
 
-[write] job 952a099a completed (attempts 1)
-  key: write/4d725319-66ac-485f-87e9-a49a2bd4a474/2eb6abcf2c31f86b0cada647
-  pinned: config v1 | model fake-model-1 | prompt writer.v1 sha 8263f43d6933 | input checked_research 4d725319 v1
-  provider calls (2, $0.000238): writer:succeeded, email_check:succeeded
-  exact writer input (context snapshot 5ceef7f7):
+[write] job 604ac350 completed (attempts 1)
+  key: write/6ad31e55-d2ba-4c4c-b51c-a601e7a91f3c
+  provider calls (2, $0.000236, model fake-model-1): writer:succeeded, email_check:succeeded
+  exact writer input (saved with the call):
     {
       "campaign": {
         "cta": "Would a brief call this week be useful?",
@@ -83,7 +74,7 @@ Lead 03b62e30-8c0b-46c2-9d5c-8fef99fc4633 - state: ready_for_draft
           "id": "finding_1",
           "recorded_at": "2026-10-20",
           "refs": [
-            "9347f804-f5f6-47a0-bbdb-f8106e8ae6bb"
+            "C1"
           ],
           "text": "Asked for help to buy a home in Torrance, CA (website inquiry, 2026-10-20)."
         },
@@ -91,7 +82,7 @@ Lead 03b62e30-8c0b-46c2-9d5c-8fef99fc4633 - state: ready_for_draft
           "id": "finding_2",
           "recorded_at": "2026-09-14",
           "refs": [
-            "32ada61a-c89a-4f14-ab10-b6e2339d9816"
+            "C2"
           ],
           "text": "Jordan Lee, a product designer at Cedar Lane Studio in Seattle, led a workshop on clear signs for public parks."
         }
@@ -125,7 +116,7 @@ Lead 03b62e30-8c0b-46c2-9d5c-8fef99fc4633 - state: ready_for_draft
         "Purchase timeline"
       ]
     }
-  -> writing v1 fcd5bde8 outcome=passed
+  -> writing v1 3c72f87c outcome=passed
      subject: Your home search
      | Hi Jordan,
      | 
@@ -142,27 +133,21 @@ Lead 03b62e30-8c0b-46c2-9d5c-8fef99fc4633 - state: ready_for_draft
      claim -> finding_1: Thank you for your recent inquiry about your home search.
      claim -> sender_fact_1: Taylor Morgan helps buyers find homes across Torrance and the South Bay.
 
-[draft] job da44e711 queued (attempts 0)
-  key: draft/ef5e3762-833c-495a-9c57-0b8d472f9631
-  pinned: config v1 | input writing fcd5bde8 v1
-  draft operation: not implemented yet (next task); job stays queued
+[draft] job bc22661e queued (attempts 0)
+  key: draft/3520c370-37fd-42cf-93c7-5893579f93ac
+  draft operation: not built yet; job stays queued
 
-outreach item ef5e3762 (first_touch) <- writing fcd5bde8
+outreach item 3520c370 (first_touch) <- writing 3c72f87c
 ```
 
 Reading the trace:
-- **Research** made 3 model rounds, 1 search, and 2 page reads. Each one has a `provider_calls`
-  row with its exact input and cost.
-- **Check** passed the supplied record (F1) and the matching web page (F2, which names Jordan's
-  organization). It excluded the Portland page (F3) on identity, so no claim check was spent on
-  it. Code made the decision: qualified, because the requested property location (Torrance) is
-  in the service area. Jordan's Seattle residence is used only for identity.
-- **Write** shows the exact writer input saved in the context snapshot. It contains no email
-  address, no page text, and no sender fact marked `use_in_outreach: false`. Each factual
-  sentence cites a finding or sender fact, the code checks passed, and the tool-free email check
-  rated each sentence.
-- **Draft**: the passing writing result created the first-touch outreach item and a queued
-  `draft/<outreach_item_id>` job. The draft operation is the next task.
-
-If the worker stops after any commit, a new worker picks up the next queued job and loads the
-saved result. Completed stages are not repeated (`tests/test_restart.py`).
+- **Research** made 3 model rounds, 1 search, and 2 page reads.
+- **Check** passed the supplied record (C1) and the page that names Jordan's organization (C2). It
+  excluded the Portland page (C3) on identity, so no claim check was spent on it. Code made the
+  decision: qualified, because the requested property location (Torrance) is in the service area.
+  Jordan's Seattle residence is used only for identity.
+- **Write** shows the exact writer input, as saved with the call. It contains no email address,
+  no page text, and no sender fact marked `use_in_outreach: false`. Each factual sentence cites a
+  finding or sender fact; the rule checks passed and the email check rated every sentence.
+- **Draft:** the passing email created the lead's one first-touch outreach item and a queued
+  `draft/<outreach_item_id>` job. The Gmail step isn't built yet.

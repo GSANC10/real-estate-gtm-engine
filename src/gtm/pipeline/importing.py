@@ -1,8 +1,8 @@
-"""Private operator import: CSV rows become immutable lead record versions in the database.
+"""Contact import: CSV rows become versioned lead records on the master list.
 
-CSV is an interchange format only. Rows are validated, deduplicated by the lead identity key,
-and checked against suppressions. A suppressed contact's details are not stored. Re-importing an
-unchanged row reuses its record version; a changed row adds a new version.
+CSV is an interchange format only. Rows are validated, deduplicated by normalized email, and
+checked against the do-not-contact list; a suppressed contact's details are not stored.
+Re-importing an unchanged row reuses its record; a changed row adds a new version.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from psycopg.types.json import Jsonb
 from pydantic import ValidationError
 
 from gtm.contracts import LeadRecord, RecordedNeed
-from gtm.db import Conn, maybe_one, one, tenant_tx
+from gtm.db import Conn, maybe_one, one
 from gtm.util import email_identity_key, json_sha256, normalize_email
 
 REQUIRED_COLUMNS = {
@@ -41,7 +41,6 @@ class ImportSummary:
     import_id: UUID
     rows: int
     outcomes: dict[str, int] = field(default_factory=dict)
-    lead_ids: list[UUID] = field(default_factory=list)
 
 
 def _blank(value: str | None) -> str | None:
@@ -70,9 +69,7 @@ def parse_row(row: dict[str, str]) -> LeadRecord:
     )
 
 
-def import_contacts(
-    conn: Conn, tenant_id: UUID, campaign_id: UUID, path: Path, source_label: str
-) -> ImportSummary:
+def import_contacts(conn: Conn, path: Path, source_label: str) -> ImportSummary:
     raw = path.read_bytes()
     reader = csv.DictReader(raw.decode("utf-8-sig").splitlines())
     missing = REQUIRED_COLUMNS - set(reader.fieldnames or [])
@@ -80,81 +77,59 @@ def import_contacts(
         raise ValueError(f"CSV is missing columns: {sorted(missing)}")
     rows = list(reader)
 
-    with tenant_tx(conn, tenant_id):
-        if maybe_one(conn, "SELECT 1 FROM gtm.campaigns WHERE id = %s", (campaign_id,)) is None:
-            raise LookupError("campaign not found for this tenant")
+    with conn.transaction():
         import_id: UUID = one(
             conn,
-            """INSERT INTO gtm.contact_imports (tenant_id, campaign_id, source_label, file_sha256, row_count)
-               VALUES (%s, %s, %s, %s, %s) RETURNING id""",
-            (tenant_id, campaign_id, source_label, hashlib.sha256(raw).hexdigest(), len(rows)),
+            """INSERT INTO gtm.imports (source_label, file_sha256, row_count, outcomes)
+               VALUES (%s, %s, %s, '{}') RETURNING id""",
+            (source_label, hashlib.sha256(raw).hexdigest(), len(rows)),
         )["id"]
         summary = ImportSummary(import_id, len(rows))
         seen: set[str] = set()
-        for number, row in enumerate(rows, start=1):
-            outcome, error, lead_id, record_id = _import_row(
-                conn, tenant_id, campaign_id, row, seen
-            )
-            conn.execute(
-                """INSERT INTO gtm.import_rows (tenant_id, import_id, row_number, outcome, lead_id, lead_record_id,
-                                               error_code)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                (tenant_id, import_id, number, outcome, lead_id, record_id, error),
-            )
+        for row in rows:
+            outcome = _import_row(conn, import_id, row, seen)
             summary.outcomes[outcome] = summary.outcomes.get(outcome, 0) + 1
-            if lead_id is not None:
-                summary.lead_ids.append(lead_id)
+        conn.execute(
+            "UPDATE gtm.imports SET outcomes = %s WHERE id = %s",
+            (Jsonb(summary.outcomes), import_id),
+        )
     return summary
 
 
-def _import_row(
-    conn: Conn, tenant_id: UUID, campaign_id: UUID, row: dict[str, str], seen: set[str]
-) -> tuple[str, str | None, UUID | None, UUID | None]:
+def _import_row(conn: Conn, import_id: UUID, row: dict[str, str], seen: set[str]) -> str:
     try:
         record = parse_row(row)
     except (ValidationError, ValueError, KeyError):
-        return "invalid", "invalid_row", None, None
+        return "invalid"
     if "@" not in record.email:
-        return "invalid", "invalid_email", None, None
+        return "invalid"
     identity = email_identity_key(record.email)
     if identity in seen:
-        return "duplicate_in_file", None, None, None
+        return "duplicate_in_file"
     seen.add(identity)
-    suppressed = maybe_one(
-        conn, "SELECT 1 FROM gtm.suppressions WHERE kind = 'email' AND value_hash = %s", (identity,)
-    )
-    if suppressed is not None:
-        return "suppressed", None, None, None
+    if maybe_one(conn, "SELECT 1 FROM gtm.suppressions WHERE value_hash = %s", (identity,)):
+        return "suppressed"
 
     conn.execute(
-        "INSERT INTO gtm.leads (tenant_id, identity_key) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-        (tenant_id, identity),
+        "INSERT INTO gtm.leads (identity_key) VALUES (%s) ON CONFLICT DO NOTHING", (identity,)
     )
     lead_id: UUID = one(conn, "SELECT id FROM gtm.leads WHERE identity_key = %s", (identity,))["id"]
     content: dict[str, Any] = record.model_dump(mode="json")
     sha = json_sha256(content)
-    existing = maybe_one(
+    if maybe_one(
         conn,
-        "SELECT id FROM gtm.lead_records WHERE lead_id = %s AND content_sha256 = %s",
+        "SELECT 1 FROM gtm.lead_records WHERE lead_id = %s AND content_sha256 = %s",
         (lead_id, sha),
-    )
-    if existing is not None:
-        record_id: UUID = existing["id"]
-    else:
-        version = one(
-            conn,
-            "SELECT coalesce(max(version), 0) + 1 AS v FROM gtm.lead_records WHERE lead_id = %s",
-            (lead_id,),
-        )["v"]
-        record_id = one(
-            conn,
-            """INSERT INTO gtm.lead_records (tenant_id, lead_id, version, schema_version, content, content_sha256)
-               VALUES (%s, %s, %s, 'lead_record.v1', %s, %s) RETURNING id""",
-            (tenant_id, lead_id, version, Jsonb(content), sha),
-        )["id"]
+    ):
+        return "unchanged"
+    version = one(
+        conn,
+        "SELECT coalesce(max(version), 0) + 1 AS v FROM gtm.lead_records WHERE lead_id = %s",
+        (lead_id,),
+    )["v"]
     conn.execute(
-        """INSERT INTO gtm.campaign_leads (tenant_id, campaign_id, lead_id) VALUES (%s, %s, %s)
-           ON CONFLICT DO NOTHING""",
-        (tenant_id, campaign_id, lead_id),
+        """INSERT INTO gtm.lead_records (lead_id, version, schema_version, content, content_sha256, import_id)
+           VALUES (%s, %s, 'lead_record.v1', %s, %s, %s)""",
+        (lead_id, version, Jsonb(content), sha, import_id),
     )
-    return "imported", None, lead_id, record_id
+    return "imported" if version == 1 else "updated"

@@ -3,12 +3,11 @@
     "CheckedFinding": {
       "additionalProperties": false,
       "properties": {
-        "citation_ids": {
+        "citation_keys": {
           "items": {
-            "format": "uuid",
             "type": "string"
           },
-          "title": "Citation Ids",
+          "title": "Citation Keys",
           "type": "array"
         },
         "id": {
@@ -50,11 +49,82 @@
         "id",
         "text",
         "use",
-        "citation_ids",
+        "citation_keys",
         "source_date",
         "provenance"
       ],
       "title": "CheckedFinding",
+      "type": "object"
+    },
+    "CitationCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "citation_key": {
+          "title": "Citation Key",
+          "type": "string"
+        },
+        "finding_key": {
+          "title": "Finding Key",
+          "type": "string"
+        },
+        "identity": {
+          "enum": [
+            "pass",
+            "fail",
+            "ambiguous"
+          ],
+          "title": "Identity",
+          "type": "string"
+        },
+        "meaning": {
+          "enum": [
+            "pass",
+            "fail",
+            "unclear",
+            "not_checked"
+          ],
+          "title": "Meaning",
+          "type": "string"
+        },
+        "method": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Method",
+          "type": "object"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "recency": {
+          "enum": [
+            "pass",
+            "stale",
+            "undated"
+          ],
+          "title": "Recency",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_key",
+        "citation_key",
+        "identity",
+        "recency",
+        "meaning",
+        "method",
+        "passed",
+        "reasons"
+      ],
+      "title": "CitationCheck",
       "type": "object"
     },
     "ExcludedFinding": {
@@ -102,10 +172,52 @@
       ],
       "title": "OutreachContext",
       "type": "object"
+    },
+    "ProposedFit": {
+      "additionalProperties": false,
+      "properties": {
+        "property_need": {
+          "enum": [
+            "met",
+            "not_met",
+            "unknown"
+          ],
+          "title": "Property Need",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 300,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "service_area": {
+          "enum": [
+            "met",
+            "not_met",
+            "unknown"
+          ],
+          "title": "Service Area",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service_area",
+        "property_need",
+        "rationale"
+      ],
+      "title": "ProposedFit",
+      "type": "object"
     }
   },
   "additionalProperties": false,
   "properties": {
+    "citation_checks": {
+      "items": {
+        "$ref": "#/$defs/CitationCheck"
+      },
+      "title": "Citation Checks",
+      "type": "array"
+    },
     "contradictions": {
       "items": {
         "type": "string"
@@ -138,6 +250,9 @@
       ],
       "title": "Property Need",
       "type": "string"
+    },
+    "proposed_fit": {
+      "$ref": "#/$defs/ProposedFit"
     },
     "qualification": {
       "enum": [
@@ -194,7 +309,9 @@
     "excluded_findings",
     "unknowns",
     "contradictions",
-    "outreach_context"
+    "outreach_context",
+    "citation_checks",
+    "proposed_fit"
   ],
   "title": "CheckedResearch",
   "type": "object"

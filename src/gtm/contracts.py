@@ -154,9 +154,20 @@ class CheckedFinding(Contract):
     id: str = Field(pattern=r"^finding_[0-9]+$")
     text: str = Field(max_length=200)
     use: FindingUse
-    citation_ids: list[UUID]
+    citation_keys: list[str]
     source_date: date | None
     provenance: str
+
+
+class CitationCheck(Contract):
+    finding_key: str
+    citation_key: str
+    identity: Literal["pass", "fail", "ambiguous"]
+    recency: Literal["pass", "stale", "undated"]
+    meaning: Literal["pass", "fail", "unclear", "not_checked"]
+    method: dict[str, str]
+    passed: bool
+    reasons: list[str]
 
 
 class ExcludedFinding(Contract):
@@ -181,6 +192,8 @@ class CheckedResearch(Contract):
     unknowns: list[str]
     contradictions: list[str]
     outreach_context: OutreachContext
+    citation_checks: list[CitationCheck]
+    proposed_fit: ProposedFit
 
 
 # --- writer.input.v1 / writer.output.v1 ----------------------------------------------------
@@ -272,22 +285,6 @@ class EmailCheckOutput(Contract):
     sentences: list[SentenceVerdict]
 
 
-# --- context_snapshot.v1 -------------------------------------------------------------------
-
-
-class ContextSnapshot(Contract):
-    schema_version: Literal["context_snapshot.v1"] = "context_snapshot.v1"
-    job_id: UUID
-    role: str
-    payload: dict[str, object]
-    prompt_version: str | None
-    prompt_sha256: str | None
-    model_id: str | None
-    tool_schema_version: str | None
-    config_version_id: UUID
-    input_refs: dict[str, object]
-
-
 EXPORTED: dict[str, type[BaseModel]] = {
     "lead_record.v1": LeadRecord,
     "research.input.v1": ResearchInput,
@@ -299,5 +296,4 @@ EXPORTED: dict[str, type[BaseModel]] = {
     "writer.output.v1": WriterOutput,
     "email_check.input.v1": EmailCheckInput,
     "email_check.output.v1": EmailCheckOutput,
-    "context_snapshot.v1": ContextSnapshot,
 }

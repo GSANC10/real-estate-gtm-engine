@@ -18,6 +18,7 @@ from gtm.context import ContextError, StageContext, StageInputs
 from gtm.contracts import (
     CheckedFinding,
     CheckedResearch,
+    CitationCheck,
     ClaimCheckInput,
     ClaimCheckOutput,
     ClaimCheckPerson,
@@ -106,7 +107,7 @@ def build_payload(inputs: StageInputs) -> dict[str, Any]:
     rec = inputs.record
     research = ResearchOutput.model_validate(inputs.input_result.content["output"])
     sources = {s["url"]: s for s in inputs.input_result.content["sources"]}
-    by_key = {c["key"]: c for c in inputs.citations}
+    by_key = {c["key"]: c for c in inputs.input_result.content["citations"]}
 
     code: dict[str, dict[str, Any]] = {}
     for key, c in by_key.items():
@@ -156,7 +157,7 @@ def execute(ctx: StageContext, calls: CallRecorder) -> StageOutput:
     cfg = inputs.config
     rec = inputs.record
     research = ResearchOutput.model_validate(inputs.input_result.content["output"])
-    by_key = {c["key"]: c for c in inputs.citations}
+    by_key = {c["key"]: c for c in inputs.input_result.content["citations"]}
     code: dict[str, dict[str, Any]] = ctx.payload["code_checks"]
 
     meaning: dict[tuple[int, str], tuple[str, list[str]]] = {}
@@ -179,7 +180,7 @@ def execute(ctx: StageContext, calls: CallRecorder) -> StageOutput:
                 ["claim_check_unclear"],
             )
 
-    checks: list[dict[str, Any]] = []
+    checks: list[CitationCheck] = []
     passing: list[tuple[int, Any]] = []
     excluded: list[ExcludedFinding] = []
     failed_qualification_reasons: list[str] = []
@@ -207,16 +208,16 @@ def execute(ctx: StageContext, calls: CallRecorder) -> StageOutput:
             )
             reasons = code[key]["reasons"] + ([] if m_status == "pass" else m_reasons)
             checks.append(
-                {
-                    "citation_id": c["id"],
-                    "finding_key": f"F{index + 1}",
-                    "identity": code[key]["identity"],
-                    "recency": code[key]["recency"],
-                    "meaning": m_status,
-                    "method": method,
-                    "passed": passed,
-                    "reasons": reasons,
-                }
+                CitationCheck(
+                    finding_key=f"F{index + 1}",
+                    citation_key=key,
+                    identity=code[key]["identity"],
+                    recency=code[key]["recency"],
+                    meaning=m_status,
+                    method=method,
+                    passed=passed,
+                    reasons=reasons,
+                )
             )
             if not passed:
                 finding_ok = False
@@ -257,7 +258,7 @@ def execute(ctx: StageContext, calls: CallRecorder) -> StageOutput:
                 id=f"finding_{n}",
                 text=finding.text,
                 use=finding.use,
-                citation_ids=[c["id"] for c in cits],
+                citation_keys=list(finding.citations),
                 source_date=min(dates) if dates else None,
                 provenance=provenance,
             )
@@ -274,6 +275,8 @@ def execute(ctx: StageContext, calls: CallRecorder) -> StageOutput:
         unknowns=research.unknowns,
         contradictions=[c.text for c in research.contradictions],
         outreach_context=OutreachContext(may_mention_inquiry=rec.may_mention_inquiry),
+        citation_checks=checks,
+        proposed_fit=research.proposed_fit,
     )
     qualified = decision == "qualified"
     return StageOutput(
@@ -284,14 +287,6 @@ def execute(ctx: StageContext, calls: CallRecorder) -> StageOutput:
         lead_state="in_progress" if qualified else decision,
         lead_state_reason=None if qualified else (reasons[0] if reasons else None),
         next_stage="write" if qualified else None,
-        citation_checks=checks,
-        decision={
-            "decision": decision,
-            "service_area": service_area,
-            "property_need": property_need,
-            "reasons": reasons,
-            "proposed_fit": research.proposed_fit.model_dump(mode="json"),
-        },
     )
 
 

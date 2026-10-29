@@ -1,74 +1,60 @@
 # Status
 
-**Updated:** 2026-10-27
-**Commit:** none yet. All work below is uncommitted in the working tree, awaiting review.
-**Plan:** implementation plan revision 3 (Supabase backend, VM worker). Revision 2 is superseded.
+**Updated:** 2026-10-28
+**Last commit:** `5d8b297` (the first build). The Phase 1 slim-down below is uncommitted and
+waiting for review.
+**Plan:** slim the repo, then build discovery with Venice + Deepline (five phases). Revision 3's
+multi-brokerage, VM, and GitHub Actions design is retired: each customer gets its own repo, and one
+program run by hand does the work.
 
-## What works (verified locally 2026-10-27, fake providers only)
-One fictional workflow runs end to end on PostgreSQL 17: import → research → check → writer
-context built from the saved checked result → writing output with email checks → queued draft job.
-
-| Behavior | Verified by |
+## Phase 1 (slim-down): done, uncommitted
+| Removed | Kept |
 |---|---|
-| Schema, roles, forced RLS, and hardened queue functions apply as a **non-superuser** migration role | `tests/conftest.py` (every test run), `gtm demo` |
-| Two fictional brokerages sharing a contact email stay isolated under the worker and operator roles; no scope → no rows; cross-tenant inserts and FKs rejected | `tests/test_isolation.py` |
-| Privileged functions owned by no-login, non-bypass roles, fixed `search_path`, no `PUBLIC` execute; each role has only its operations | `tests/test_isolation.py` |
-| Versioned inputs: immutable lead records, results, configs, and snapshots; jobs pinned to input, config, prompt hash, and model | `tests/test_pipeline.py`, `tests/test_identities.py` |
-| Atomic completion with lease and fencing token; stale lease cannot commit; conflicting replay rejected; lost commit response resolved without new inference | `tests/test_restart.py` |
-| Restart after each stage commit reuses completed results: no new `provider_calls` rows for completed jobs | `tests/test_restart.py`, `gtm demo` |
-| Crash during a provider call: job recovered after lease expiry; the interrupted call is marked uncertain and counted as spent | `tests/test_restart.py` |
-| Re-trigger with unchanged inputs reuses jobs; explicit rerun and revised records create new versions; still one first-touch outreach item | `tests/test_identities.py` |
-| Per-job limits (model calls, tokens, JSON repairs) and run budget with reserved/settled/uncertain spend | `tests/test_limits_budget.py` |
-| Live checks before paid stages: new suppression cancels, paused campaign blocks then resumes | `tests/test_live_checks.py` |
-| Citation checks (identity, recency, meaning) and code-made qualification; service fit uses requested property location (Seattle resident buying in Torrance qualifies) | `tests/test_pipeline.py` |
-| Email code checks (invented figures, unknown topics, prior relationship, protected attributes, inquiry permission, links/phones/emails, refs, length, language) and model sentence check; failures stop before any draft | `tests/test_email_checks.py` |
-| No send path in code; contract schemas in sync; public-safety scan | `tests/test_repo_rules.py` |
+| Multi-brokerage isolation (tenant IDs, per-brokerage database rules, second fictional brokerage) | Research, check, and write stages, unchanged in behavior |
+| Five database logins and the trigger functions (one login now, `GTM_DATABASE_URL`) | Atomic completion: result + next job + lead state in one transaction |
+| Leases, fencing tokens, and the fault-injection framework | Jobs consume the exact result their parent produced |
+| Three-part budget ledger (now one spending total vs. a cap per run) | Per-job call limits and the call log with exact inputs and costs |
+| Saved-context table (the call log already stores every exact input) | Master list: one record per person, do-not-contact list, versioned records |
+| Config versions and fingerprints (the config is saved on each run) | One first email per lead; failure reasons on every rejection |
+| Supabase/VM/Actions docs and `docs/operations.md` | Fake providers, demo, `ci.yml` (tests only), public-safety scan |
 
-**Test results (2026-10-27, macOS, PostgreSQL 17.11, Python 3.13.6):**
-`uv run pytest` → 52 passed. `uv run mypy src` (strict) → no issues. `uv run ruff check .` and
-`ruff format --check .` → clean. `uv run python scripts/check_public_safety.py` → passed (gitleaks
-not installed locally, so its part was skipped). `uv run gtm demo --fake-providers` → exit 0.
+**Size:** code 5,165 → 3,707 lines; tests 1,229 → 781. That's short of the ~2,700 target. The
+remainder is mostly the stages, which the plan kept unchanged on purpose: checks 338, fake
+providers 332, call log and limits 314, contracts 299, research 288. Further cuts would mean
+changing how the stages behave.
 
-## Decisions made while building (review these)
-1. **Two function-owner roles**, `gtm_claim_owner` (queue columns only, across tenants) and
-   `gtm_enqueue_owner` (tenant-scoped enqueue/status), instead of one shared owner.
-2. **Completion is one psycopg transaction** in `gtm/queue.py`, not a database function.
-3. **Prompt text is pinned inside each config version** (with its hash), so queued jobs stay
-   reproducible even if a prompt file changes.
-4. **Per-stage fingerprints** (research, check, write): a writing-only change, such as tone, does
-   not re-run research or checks.
-5. **Email-check verdicts are stored inside the writing result**, not as a separate stage result.
-6. **Per-job call limits count per attempt.** Earlier attempts stay recorded, and attempts are
-   capped at 3.
-7. **Contacts suppressed at import are not stored at all.** Only the import row outcome is kept.
-8. **Web findings with ambiguous identity are dropped from personalization.** Review is reserved
-   for doubtful qualification evidence.
-9. **Draft jobs are created and left queued.** The worker claims only research, check, and write
-   until the draft operation exists.
-10. **The migration requires PostgreSQL 16+** (`GRANT … WITH INHERIT FALSE, SET TRUE` for the
-    non-superuser migration role).
-11. **The demo's evaluation date is fixed at 2026-10-27**, so fictional evidence ages stay stable.
+## Verified (2026-10-28, macOS, PostgreSQL 17.11, Python 3.13.6)
+- `uv run pytest`: 40 passed.
+- `uv run mypy src` (strict), `ruff check`, and `ruff format --check`: clean.
+- `uv run python scripts/check_public_safety.py`: passed (gitleaks not installed locally; CI runs it).
+- `uv run gtm demo --fake-providers`: exit 0, with the same five outcomes as before the slim-down,
+  no repeated calls after a restart, and 0 new calls on an unchanged rerun.
 
-## Blockers and unverified items
-- **Supabase:** no project or credentials yet. Migrations are tested only against local
-  PostgreSQL 17 with a Supabase-like non-superuser migration role. Hosted grants, function
-  ownership, and TLS are unverified.
-- **CI:** `.github/workflows/ci.yml` has never run (nothing is committed or pushed). gitleaks has
-  not run yet.
-- **Providers:** the hosted model, Deepline, and Gmail adapters do not exist. Their capability,
-  pricing, and idempotency facts (plan §5.4) are unverified.
-- **Account-dependent unknowns** (plan §5.6): sender facts and tone reference, the five contacts,
-  Workspace OAuth client, VM, Supabase plan, model privacy tier, Deepline plan, compliance footer.
+| Behavior | Test |
+|---|---|
+| Handoff chain: each job consumes its parent's exact result; the writer input excludes email, page text, and private sender facts | `test_pipeline.py` |
+| Honest outcomes for all five fictional contacts; Seattle resident buying in Torrance qualifies | `test_pipeline.py` |
+| A new suppression stops spending; oversized context blocks with a reason | `test_pipeline.py` |
+| Restart after each finished stage reuses it; a job interrupted mid-call is re-queued and its call counted as spent | `test_resume.py` |
+| A failure inside completion saves nothing; a lost commit response is replayed without new calls; conflicting replays are rejected | `test_resume.py` |
+| Unchanged reruns reuse work; an explicit rerun redoes it; revised records add versions but no second first email; queued jobs keep their run's config | `test_identities.py` |
+| Tool-loop, token, JSON-repair, and spending limits; timeouts count as spent | `test_limits.py` |
+| Email rule checks and the model sentence check stop bad emails before any draft | `test_email_checks.py` |
+| No send path, contract schemas in sync, public-safety scan | `test_repo_rules.py` |
 
-## Not built yet (from the M1 plan)
-Draft operation and Gmail client, `gmail_operations`, credentials encryption, `gtm review`,
-provider adapters and `gtm providers check`, model evaluation, `deploy.yml`/`run.yml` and the VM
-service, backups and restore drill, discovery-round job keys (`find/…`), live SIGKILL drill.
+## Decisions in this phase
+1. **The rerun key is the research job's input.** Research is keyed by lead record plus rerun
+   number. A config change applies to new leads, or to everyone with `gtm run --rerun N`.
+2. **Lead state lives on `leads`.** There's one campaign per repo, so no per-campaign table.
+3. **On startup the program re-queues jobs left `running`**, and calls left `started` are counted
+   as spent. This is safe only because exactly one program runs at a time.
 
-## Next task
-**Draft operation with a fake Gmail client** (plan §2.3, §2.6):
-- `gmail_operations` with the partial unique index (one active operation per outreach item).
-- Draft-only client (path allowlist) and fake Gmail with success, timeout, and lost-response modes.
-- Live rechecks before drafting: suppression, campaign pause, mailbox `needs_reauth`, evidence age.
-- Uncertain-outcome reconciliation by Message-ID, where an empty search ends in `needs_review`.
-- Add `draft` to the worker's stages, plus `gtm review`.
+## Not built yet
+Venice and Deepline adapters, discovery, qualification rules for discovered people, and Gmail drafts.
+
+## Next task: Phase 2, Venice and Deepline connections
+1. Read both providers' current API docs and record dated facts in `docs/providers.md`. Venice:
+   the Qwen model ID, tool-calling support, turning off its own system prompt and web search,
+   pricing. Deepline: search, page contents, email finding, pricing, retries.
+2. `providers/venice.py` and `providers/deepline.py`, tested with recorded responses only.
+3. `gtm providers check` for one live test. **Needs your Venice and Deepline API keys.**

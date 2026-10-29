@@ -272,6 +272,7 @@ def execute(ctx: StageContext, calls: CallRecorder) -> StageOutput:
 
     content = {
         "output": output.model_dump(mode="json"),
+        "citations": citations,
         "sources": list(session.retrieved.values()),
         "rounds": round_no,
         "tool_use": {"searches": session.searches, "page_reads": session.reads},
@@ -284,5 +285,4 @@ def execute(ctx: StageContext, calls: CallRecorder) -> StageOutput:
         lead_state="in_progress",
         lead_state_reason=None,
         next_stage="check",
-        citations=citations,
     )

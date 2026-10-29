@@ -7,12 +7,12 @@ who knows the sketch answers.
 
 | Sketch element | Interpretation | Open question |
 |---|---|---|
-| Top-left box: "Dec…ed Model + Deepline" | Finder: a model with Deepline's Exa tools. Deferred until after M1. | ⚠ First word illegible. Mapped from "discovery model". |
+| Top-left box: "Dec…ed Model + Deepline" | Discovery: a **decensored** (uncensored) Qwen model on Venice decides what to search; Deepline searches and finds emails. Planned (roadmap step 2). | Confirmed 2026-10-28 |
 | Circled "List / CSV" | The saved lead list is the `leads` / `lead_records` tables. CSV is only for import and export. | |
 | Middle box: "Research Agents" | Researcher, one job per lead | |
 | Struck-through "+ Outbound Skill" in the middle box | Writing instructions belong to the Writer, not to research | ⚠ Inferred from the strike-through |
 | "Claude" written over the middle box's model label | No special handling. The model is configurable per role. | ⚠ Was research meant to run on Claude? |
-| Right box: "Dec…ed Model + Skill" | Writer: a model plus versioned instructions (`prompts/writer.v1.md`) | |
+| Right box: "Dec…ed Model + Skill" | Writer: the same uncensored Qwen on Venice plus versioned instructions (`prompts/writer.v1.md`). Code, not the model, enforces what an email may say. | |
 | Arrow from research back to the List | Research results are saved against the lead in the database | Inferred |
 | "? Forn…" box leading out of the List | Not designed | ⚠ Unreadable (Formatter? Formatted?) |
 | Box with a diagonal slash under the CSV | Treated as CSV export | ⚠ Unclear |
@@ -24,4 +24,4 @@ who knows the sketch answers.
 | "GitHub Repo for the skill" | Versioned role instructions in `prompts/` in this repo | ⚠ The sketch suggests a separate repo |
 | "pi" (with a small superscript) | Not designed | ⚠ Unclear |
 | "Gmail" | Gmail API through Google Workspace OAuth, `gmail.compose` scope, draft-only in code | |
-| "Produce a list of [3/5] names that fit the ICP…" | Discovery target. M1 uses five supplied contacts instead. | ⚠ Count overwritten (3 or 5) |
+| "Produce a list of [3/5] names that fit the ICP…" | Discovery target. The working goal is about 50 qualified leads. | ⚠ Count overwritten (3 or 5) |

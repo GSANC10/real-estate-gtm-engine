@@ -10,7 +10,7 @@ import pytest
 from gtm.contracts import WriterInput, WriterOutput
 from gtm.providers.base import ModelRequest, ModelResponse, Usage
 from gtm.validation import email_code_checks
-from tests.conftest import JORDAN
+from tests.conftest import JORDAN, Env
 
 WRITER_INPUT = WriterInput.model_validate(
     {
@@ -129,8 +129,8 @@ def _writer_saying(sentence: str, refs: list[str]) -> Any:
     return respond
 
 
-def test_invented_budget_stops_before_any_draft(jordan_run: tuple) -> None:  # type: ignore[type-arg]
-    env, applied, _run = jordan_run
+def test_invented_budget_stops_before_any_draft(jordan_run: Env) -> None:
+    env = jordan_run
     env.model.script(
         "writer", _writer_saying("Your budget of $900,000 fits Torrance well.", ["finding_1"])
     )
@@ -147,14 +147,14 @@ def test_invented_budget_stops_before_any_draft(jordan_run: tuple) -> None:  # t
         env.scalar("SELECT count(*) FROM gtm.provider_calls WHERE operation = 'email_check'") == 0
     )
     assert env.scalar("SELECT count(*) FROM gtm.outreach_items") == 0
-    assert env.lead_state(applied.tenant_id, JORDAN["email"]) == (
+    assert env.lead_state(JORDAN["email"]) == (
         "needs_review",
         "email_checks_failed",
     )
 
 
-def test_overstated_sentence_from_the_model_check_stops_before_any_draft(jordan_run: tuple) -> None:  # type: ignore[type-arg]
-    env, _applied, _run = jordan_run
+def test_overstated_sentence_from_the_model_check_stops_before_any_draft(jordan_run: Env) -> None:
+    env = jordan_run
     sentence = "You are ready to make an offer on a Torrance home."
     env.model.script("writer", _writer_saying(sentence, ["finding_1"]))
 

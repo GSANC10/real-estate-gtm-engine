@@ -51,7 +51,7 @@ def build_payload(inputs: StageInputs) -> dict[str, Any]:
             WriterFinding(
                 id=f.id,
                 text=f.text,
-                refs=[str(c) for c in f.citation_ids],
+                refs=f.citation_keys,
                 recorded_at=f.source_date,
             )
             for f in selected

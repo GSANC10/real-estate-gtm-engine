@@ -1,8 +1,9 @@
 """Bounded, recorded provider calls.
 
-Every model call and research tool call gets a ``provider_calls`` row before dispatch, with its
-exact input, a deterministic idempotency key, and a worst-case cost reservation against the run
-budget. Per-job limits on model calls, tokens, and JSON repairs stop runaway agent loops.
+Every model call and research tool call gets a ``provider_calls`` row before it is sent, with
+its exact input and a cost estimate. A call goes out only while the run's spending plus that
+estimate stays within its cap. Per-job limits on model calls, tokens, and JSON repairs stop
+runaway agent loops. A timed-out call may still be billed, so its estimate counts as spent.
 """
 
 from __future__ import annotations
@@ -17,8 +18,7 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ValidationError
 
 from gtm.config import Pricing, ResolvedConfig, StageLimits
-from gtm.db import Conn, maybe_one, one, tenant_tx
-from gtm.faults import NO_FAULTS, Faults
+from gtm.db import Conn, maybe_one, one
 from gtm.providers.base import (
     ModelRequest,
     ModelResponse,
@@ -55,6 +55,20 @@ def model_cost(pricing: Pricing, input_tokens: int, output_tokens: int) -> Decim
     ) / MTOK
 
 
+def parse_output[M: BaseModel](
+    content: str | None, schema: type[M], validate: Callable[[M], list[str]] | None
+) -> tuple[M | None, list[str]]:
+    """Parse and validate a model answer: (output, []) when valid, else (None, problems)."""
+    if not content:
+        return None, ["empty response"]
+    try:
+        parsed = schema.model_validate_json(content)
+    except ValidationError as exc:
+        return None, [f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()[:8]]
+    problems = validate(parsed) if validate is not None else []
+    return (None, problems) if problems else (parsed, [])
+
+
 @dataclass
 class CallRecorder:
     conn: Conn
@@ -62,23 +76,28 @@ class CallRecorder:
     config: ResolvedConfig
     limits: StageLimits
     providers: Providers
-    heartbeat: Callable[[], None]
-    faults: Faults = NO_FAULTS
     model_calls: int = 0
     seq: int = 0
 
-    # -- budget -------------------------------------------------------------------------
-
-    def _reserve(self, row: dict[str, Any]) -> UUID:
-        """Reserve cost on the run and save the call row, in one transaction."""
-        with tenant_tx(self.conn, self.job.tenant_id):
+    def _start(
+        self,
+        *,
+        round_no: int,
+        provider: str,
+        kind: str,
+        operation: str,
+        model_id: str | None,
+        call_input: Any,
+        estimate: Decimal,
+    ) -> UUID:
+        """Check the run's cap and save the call row, in one transaction."""
+        self.seq += 1
+        with self.conn.transaction():
             ok = maybe_one(
                 self.conn,
-                """UPDATE gtm.runs SET reserved_usd = reserved_usd + %(cost)s, updated_at = now()
-                    WHERE id = %(run)s AND status = 'active'
-                      AND settled_usd + reserved_usd + uncertain_usd + %(cost)s <= budget_cap_usd
-                RETURNING id""",
-                {"cost": row["cost"], "run": self.job.run_id},
+                """SELECT 1 FROM gtm.runs WHERE id = %s AND status = 'active'
+                     AND spent_usd + %s <= budget_cap_usd FOR UPDATE""",
+                (self.job.run_id, estimate),
             )
             if ok is None:
                 self.conn.execute(
@@ -89,49 +108,46 @@ class CallRecorder:
                 call_id: UUID = one(
                     self.conn,
                     """INSERT INTO gtm.provider_calls
-                     (tenant_id, run_id, job_id, stage, job_attempt, round, seq, provider, kind, operation,
-                      model_id, input, input_sha256, state, idempotency_key, cost_reserved_usd)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'reserved', %s, %s)
-                   RETURNING id""",
+                         (run_id, job_id, stage, job_attempt, round, seq, provider, kind, operation, model_id,
+                          input, input_sha256, state, idempotency_key, cost_estimate_usd)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'started', %s, %s)
+                       RETURNING id""",
                     (
-                        self.job.tenant_id,
                         self.job.run_id,
                         self.job.id,
                         self.job.stage,
                         self.job.attempt,
-                        row["round"],
+                        round_no,
                         self.seq,
-                        row["provider"],
-                        row["kind"],
-                        row["operation"],
-                        row["model_id"],
-                        Jsonb(row["input"]),
-                        json_sha256(row["input"]),
-                        row["idempotency_key"],
-                        row["cost"],
+                        provider,
+                        kind,
+                        operation,
+                        model_id,
+                        Jsonb(call_input),
+                        json_sha256(call_input),
+                        f"{self.job.id}:{self.job.attempt}:{self.seq}",
+                        estimate,
                     ),
                 )["id"]
         if ok is None:
             raise BudgetExceeded()
         return call_id
 
-    def _settle(
+    def _finish(
         self,
         call_id: UUID,
-        reserved: Decimal,
         *,
         state: str,
-        cost: Decimal | None,
+        cost: Decimal,
         output: Any = None,
         usage: dict[str, int] | None = None,
         request_id: str | None = None,
         error_code: str | None = None,
     ) -> None:
-        with tenant_tx(self.conn, self.job.tenant_id):
+        with self.conn.transaction():
             self.conn.execute(
-                """UPDATE gtm.provider_calls
-                      SET state = %s, cost_settled_usd = %s, output = %s, usage = %s, request_id = %s,
-                          error_code = %s, settled_at = now()
+                """UPDATE gtm.provider_calls SET state = %s, cost_usd = %s, output = %s, usage = %s,
+                          request_id = %s, error_code = %s, settled_at = now()
                     WHERE id = %s""",
                 (
                     state,
@@ -143,19 +159,20 @@ class CallRecorder:
                     call_id,
                 ),
             )
-            # Uncertain calls stay counted as spent until provider usage records reconcile them.
-            settled = cost if state in ("succeeded", "failed") and cost is not None else Decimal(0)
-            uncertain = reserved if state == "uncertain" else Decimal(0)
             self.conn.execute(
-                """UPDATE gtm.runs SET reserved_usd = greatest(reserved_usd - %s, 0),
-                                       settled_usd = settled_usd + %s,
-                                       uncertain_usd = uncertain_usd + %s, updated_at = now()
-                    WHERE id = %s""",
-                (reserved, settled, uncertain, self.job.run_id),
+                "UPDATE gtm.runs SET spent_usd = spent_usd + %s, updated_at = now() WHERE id = %s",
+                (cost, self.job.run_id),
             )
 
-    def _idempotency_key(self) -> str:
-        return f"{self.job.id}:{self.job.attempt}:{self.seq}"
+    def _dispatch[T](self, call_id: UUID, estimate: Decimal, send: Callable[[], T]) -> T:
+        try:
+            return send()
+        except ProviderTimeout:
+            self._finish(call_id, state="uncertain", cost=estimate, error_code="provider_timeout")
+            raise
+        except ProviderError as exc:
+            self._finish(call_id, state="failed", cost=Decimal(0), error_code=exc.code)
+            raise
 
     # -- model calls ----------------------------------------------------------------------
 
@@ -173,9 +190,8 @@ class CallRecorder:
         if estimated_in > self.limits.input_tokens:
             raise LimitExceeded("input_tokens_exceeded")
         role_cfg = self.config.roles.get(role)
-        reserved = model_cost(role_cfg.pricing, estimated_in, self.limits.output_tokens)
+        estimate = model_cost(role_cfg.pricing, estimated_in, self.limits.output_tokens)
         self.model_calls += 1
-        self.seq += 1
         request = ModelRequest(
             role=role,
             model_id=role_cfg.model_id,
@@ -183,48 +199,32 @@ class CallRecorder:
             tools=tools or [],
             max_output_tokens=self.limits.output_tokens,
         )
-        call_id = self._reserve(
-            {
-                "round": round_no,
-                "provider": self.providers.model.provider,
-                "kind": "model",
-                "operation": role,
-                "model_id": role_cfg.model_id,
-                "input": {"messages": messages, "tools": tools or []},
-                "idempotency_key": self._idempotency_key(),
-                "cost": reserved,
-            }
+        call_id = self._start(
+            round_no=round_no,
+            provider=self.providers.model.provider,
+            kind="model",
+            operation=role,
+            model_id=role_cfg.model_id,
+            call_input={"messages": messages, "tools": tools or []},
+            estimate=estimate,
         )
-        self.heartbeat()
-        self.faults.hit("provider.model")
-        try:
-            response = self.providers.model.complete(request)
-        except ProviderTimeout:
-            self._settle(
-                call_id, reserved, state="uncertain", cost=None, error_code="provider_timeout"
-            )
-            raise
-        except ProviderError as exc:
-            self._settle(call_id, reserved, state="failed", cost=Decimal(0), error_code=exc.code)
-            raise
+        response = self._dispatch(call_id, estimate, lambda: self.providers.model.complete(request))
         usage = {
             "input_tokens": response.usage.input_tokens,
             "output_tokens": response.usage.output_tokens,
         }
-        cost = model_cost(
-            role_cfg.pricing, response.usage.input_tokens, response.usage.output_tokens
-        )
         output = {
             "content": response.content,
             "tool_calls": [
                 {"id": t.id, "name": t.name, "arguments": t.arguments} for t in response.tool_calls
             ],
         }
-        self._settle(
+        self._finish(
             call_id,
-            reserved,
             state="succeeded",
-            cost=cost,
+            cost=model_cost(
+                role_cfg.pricing, response.usage.input_tokens, response.usage.output_tokens
+            ),
             output=output,
             usage=usage,
             request_id=response.request_id,
@@ -245,8 +245,8 @@ class CallRecorder:
     ) -> tuple[M, int]:
         """Call ``role`` for a JSON answer, re-asking with the validation error up to ``repairs`` times.
 
-        Each repair is a model call and counts against the job's limit. Returns the parsed
-        output and the number of repairs used.
+        Each repair is a model call and counts against the job's limit. Returns the parsed output
+        and the number of repairs used.
         """
         convo = list(messages)
         used = 0
@@ -279,71 +279,36 @@ class CallRecorder:
         round_no: int,
         run: Callable[[str], tuple[Any, str | None]],
     ) -> Any:
-        tools_cfg = self.config.research_tools
-        cost = (
-            tools_cfg.pricing.search_usd
-            if name == "exa_search"
-            else tools_cfg.pricing.page_read_usd
+        pricing = self.config.research_tools.pricing
+        cost = pricing.search_usd if name == "exa_search" else pricing.page_read_usd
+        call_id = self._start(
+            round_no=round_no,
+            provider=self.providers.tools.provider,
+            kind="tool",
+            operation=name,
+            model_id=None,
+            call_input=arguments,
+            estimate=cost,
         )
-        self.seq += 1
-        key = self._idempotency_key()
-        call_id = self._reserve(
-            {
-                "round": round_no,
-                "provider": self.providers.tools.provider,
-                "kind": "tool",
-                "operation": name,
-                "model_id": None,
-                "input": arguments,
-                "idempotency_key": key,
-                "cost": cost,
-            }
-        )
-        self.heartbeat()
-        self.faults.hit("provider.tool")
-        try:
-            result, request_id = run(key)
-        except ProviderTimeout:
-            self._settle(call_id, cost, state="uncertain", cost=None, error_code="provider_timeout")
-            raise
-        except ProviderError as exc:
-            self._settle(call_id, cost, state="failed", cost=Decimal(0), error_code=exc.code)
-            raise
-        self._settle(
-            call_id, cost, state="succeeded", cost=cost, output=result, request_id=request_id
-        )
+        key = f"{self.job.id}:{self.job.attempt}:{self.seq}"
+        result, request_id = self._dispatch(call_id, cost, lambda: run(key))
+        self._finish(call_id, state="succeeded", cost=cost, output=result, request_id=request_id)
         return result
 
 
-def parse_output[M: BaseModel](
-    content: str | None, schema: type[M], validate: Callable[[M], list[str]] | None
-) -> tuple[M | None, list[str]]:
-    """Parse and validate a model answer: (output, []) when valid, else (None, problems)."""
-    if not content:
-        return None, ["empty response"]
-    try:
-        parsed = schema.model_validate_json(content)
-    except ValidationError as exc:
-        return None, [f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()[:8]]
-    problems = validate(parsed) if validate is not None else []
-    return (None, problems) if problems else (parsed, [])
-
-
 def mark_interrupted_calls(conn: Conn, job: Job) -> int:
-    """Calls left 'reserved' by an earlier, interrupted attempt may have been billed: mark them uncertain."""
-    with tenant_tx(conn, job.tenant_id):
+    """Calls a stopped program left 'started' may have been billed: mark them uncertain and count them."""
+    with conn.transaction():
         rows = conn.execute(
-            """UPDATE gtm.provider_calls SET state = 'uncertain', error_code = 'interrupted', settled_at = now()
-                WHERE job_id = %s AND job_attempt < %s AND state = 'reserved'
-            RETURNING cost_reserved_usd""",
+            """UPDATE gtm.provider_calls SET state = 'uncertain', cost_usd = cost_estimate_usd,
+                      error_code = 'interrupted', settled_at = now()
+                WHERE job_id = %s AND job_attempt < %s AND state = 'started'
+            RETURNING cost_estimate_usd""",
             (job.id, job.attempt),
         ).fetchall()
-        total = sum((r["cost_reserved_usd"] for r in rows), Decimal(0))
         if rows:
             conn.execute(
-                """UPDATE gtm.runs SET reserved_usd = greatest(reserved_usd - %s, 0),
-                                       uncertain_usd = uncertain_usd + %s, updated_at = now()
-                    WHERE id = %s""",
-                (total, total, job.run_id),
+                "UPDATE gtm.runs SET spent_usd = spent_usd + %s, updated_at = now() WHERE id = %s",
+                (sum((r["cost_estimate_usd"] for r in rows), Decimal(0)), job.run_id),
             )
     return len(rows)

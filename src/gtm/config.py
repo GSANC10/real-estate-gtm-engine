@@ -1,36 +1,24 @@
-"""Brokerage and campaign configuration.
+"""Brokerage configuration.
 
-YAML files are validated, resolved (role instructions are read from ``prompts/`` and pinned by
-hash and text), and stored as immutable ``config_versions`` rows. Jobs pin a version, so later
-edits never change queued work. Each stage's fingerprint covers only the settings that stage
-uses, so changing the writing tone does not re-run research.
+A YAML file is validated and resolved: each role's instructions are read from ``prompts/`` and
+copied in with their hash. The resolved config is saved on every run, and jobs read it from
+their run, so editing the file never changes work that is already queued.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
-from uuid import UUID
 
 import yaml
-from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from gtm.contracts import ServiceArea
-from gtm.db import Conn, maybe_one, one, tenant_tx
-from gtm.util import json_sha256, sha256_hex
+from gtm.util import sha256_hex
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
-
-# Code-side policy versions. Bump one when the matching checks change behavior; the bump
-# changes job fingerprints, so new runs re-check instead of reusing results made under old rules.
-RESEARCH_POLICY_VERSION = "research_policy.v1"
 TOOL_SCHEMA_VERSION = "research_tools.v1"
-CHECK_POLICY_VERSION = "check_policy.v1"
-EMAIL_POLICY_VERSION = "email_policy.v1"
-
 ROLE_NAMES = ("researcher", "claim_check", "writer", "email_check")
 
 
@@ -38,16 +26,10 @@ class Cfg(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-class Tenant(Cfg):
-    id: UUID
-    slug: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")
-    name: str
-    kind: Literal["fictional", "real"]
-
-
 class Brokerage(Cfg):
     name: str
     postal_address: str
+    kind: Literal["fictional", "real"]
 
 
 class SenderFactConfig(Cfg):
@@ -57,7 +39,6 @@ class SenderFactConfig(Cfg):
 
 
 class Sender(Cfg):
-    slug: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")
     name: str
     title: str
     email: str
@@ -87,7 +68,6 @@ class Footer(Cfg):
 
 
 class Campaign(Cfg):
-    slug: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")
     name: str
     service_area: ServiceArea
     need_categories: list[str] = Field(min_length=1)
@@ -170,7 +150,6 @@ class QualificationRules(Cfg):
 
 class BrokerageConfig(Cfg):
     schema_version: Literal["brokerage_config.v1"]
-    tenant: Tenant
     brokerage: Brokerage
     sender: Sender
     mailbox: Mailbox
@@ -188,15 +167,13 @@ class PromptRef(Cfg):
 
 
 class ResolvedConfig(BrokerageConfig):
-    """The stored form: configuration plus pinned instructions and stage fingerprints."""
+    """The form saved on each run: the configuration plus the exact role instructions."""
 
     prompts: dict[str, PromptRef]
-    fingerprints: dict[str, str]
 
 
 def load_config_file(path: Path) -> BrokerageConfig:
-    data = yaml.safe_load(path.read_text())
-    return BrokerageConfig.model_validate(data)
+    return BrokerageConfig.model_validate(yaml.safe_load(path.read_text()))
 
 
 def read_prompt(version: str, prompts_dir: Path = PROMPTS_DIR) -> PromptRef:
@@ -204,151 +181,12 @@ def read_prompt(version: str, prompts_dir: Path = PROMPTS_DIR) -> PromptRef:
     return PromptRef(version=version, sha256=sha256_hex(text), text=text)
 
 
-def stage_fingerprints(cfg: BrokerageConfig, prompts: dict[str, PromptRef]) -> dict[str, str]:
-    def role(name: str) -> dict[str, Any]:
-        r = cfg.roles.get(name)
-        return {
-            "model_id": r.model_id,
-            "provider": r.provider,
-            "prompt_sha256": prompts[name].sha256,
-        }
-
-    campaign = cfg.campaign
-    research = {
-        "policy": RESEARCH_POLICY_VERSION,
-        "tool_schema": TOOL_SCHEMA_VERSION,
-        "role": role("researcher"),
-        "tools": cfg.research_tools.model_dump(mode="json", exclude={"pricing"}),
-        "limits": cfg.limits.research.model_dump(mode="json"),
-        "service_area": campaign.service_area.model_dump(mode="json"),
-        "need_categories": campaign.need_categories,
-        "evidence_max_age_days": campaign.evidence_max_age_days,
-    }
-    check = {
-        "policy": CHECK_POLICY_VERSION,
-        "role": role("claim_check"),
-        "limits": cfg.limits.check.model_dump(mode="json"),
-        "service_area": campaign.service_area.model_dump(mode="json"),
-        "need_categories": campaign.need_categories,
-        "evidence_max_age_days": campaign.evidence_max_age_days,
-        "qualification": cfg.qualification.model_dump(mode="json"),
-    }
-    write = {
-        "policy": EMAIL_POLICY_VERSION,
-        "writer": role("writer"),
-        "email_check": role("email_check"),
-        "limits": cfg.limits.write.model_dump(mode="json"),
-        "sender": {
-            "name": cfg.sender.name,
-            "title": cfg.sender.title,
-            "facts": [f.model_dump(mode="json") for f in cfg.sender.facts if f.use_in_outreach],
-        },
-        "brokerage": cfg.brokerage.name,
-        "campaign": campaign.model_dump(
-            mode="json",
-            include={"offer", "cta", "tone_rules", "tone_reference", "max_words", "language"},
-        ),
-    }
-    return {
-        "research": json_sha256(research),
-        "check": json_sha256(check),
-        "write": json_sha256(write),
-    }
-
-
 def resolve(cfg: BrokerageConfig, prompts_dir: Path = PROMPTS_DIR) -> ResolvedConfig:
     prompts = {
         name: read_prompt(cfg.roles.get(name).prompt_version, prompts_dir) for name in ROLE_NAMES
     }
-    return ResolvedConfig(
-        **cfg.model_dump(), prompts=prompts, fingerprints=stage_fingerprints(cfg, prompts)
-    )
+    return ResolvedConfig(**cfg.model_dump(), prompts=prompts)
 
 
 def parse_stored(content: dict[str, Any]) -> ResolvedConfig:
     return ResolvedConfig.model_validate(content)
-
-
-@dataclass(frozen=True)
-class AppliedConfig:
-    tenant_id: UUID
-    campaign_id: UUID
-    config_version_id: UUID
-    version: int
-    created: bool
-
-
-def apply_config(
-    conn: Conn, cfg: BrokerageConfig, prompts_dir: Path = PROMPTS_DIR
-) -> AppliedConfig:
-    """Upsert tenant, sender, mailbox, and campaign, then store a new version if content changed."""
-    resolved = resolve(cfg, prompts_dir)
-    content = resolved.model_dump(mode="json")
-    content_sha = json_sha256(content)
-    tenant = cfg.tenant
-
-    with tenant_tx(conn, tenant.id):
-        existing = maybe_one(conn, "SELECT slug FROM gtm.tenants WHERE id = %s", (tenant.id,))
-        if existing is None:
-            conn.execute(
-                "INSERT INTO gtm.tenants (id, slug, name, kind) VALUES (%s, %s, %s, %s)",
-                (tenant.id, tenant.slug, tenant.name, tenant.kind),
-            )
-        elif existing["slug"] != tenant.slug:
-            raise ValueError("tenant slug cannot change for an existing tenant id")
-        else:
-            conn.execute("UPDATE gtm.tenants SET name = %s WHERE id = %s", (tenant.name, tenant.id))
-
-        sender_id = one(
-            conn,
-            """INSERT INTO gtm.senders (tenant_id, slug, display_name) VALUES (%s, %s, %s)
-               ON CONFLICT (tenant_id, slug) DO UPDATE SET display_name = EXCLUDED.display_name
-               RETURNING id""",
-            (tenant.id, cfg.sender.slug, cfg.sender.name),
-        )["id"]
-        conn.execute(
-            """INSERT INTO gtm.mailboxes (tenant_id, address, mode) VALUES (%s, %s, %s)
-               ON CONFLICT (tenant_id, address) DO NOTHING""",
-            (tenant.id, cfg.mailbox.address, cfg.mailbox.mode),
-        )
-        mailbox_id = one(
-            conn, "SELECT id FROM gtm.mailboxes WHERE address = %s", (cfg.mailbox.address,)
-        )["id"]
-        campaign_id = one(
-            conn,
-            """INSERT INTO gtm.campaigns (tenant_id, slug, sender_id, mailbox_id) VALUES (%s, %s, %s, %s)
-               ON CONFLICT (tenant_id, slug) DO UPDATE
-                 SET sender_id = EXCLUDED.sender_id, mailbox_id = EXCLUDED.mailbox_id, updated_at = now()
-               RETURNING id""",
-            (tenant.id, cfg.campaign.slug, sender_id, mailbox_id),
-        )["id"]
-
-        same = maybe_one(
-            conn,
-            "SELECT id, version FROM gtm.config_versions WHERE campaign_id = %s AND content_sha256 = %s",
-            (campaign_id, content_sha),
-        )
-        if same is not None:
-            return AppliedConfig(tenant.id, campaign_id, same["id"], same["version"], created=False)
-
-        version = one(
-            conn,
-            "SELECT coalesce(max(version), 0) + 1 AS v FROM gtm.config_versions WHERE campaign_id = %s",
-            (campaign_id,),
-        )["v"]
-        cv_id = one(
-            conn,
-            """INSERT INTO gtm.config_versions (tenant_id, campaign_id, version, content, content_sha256)
-               VALUES (%s, %s, %s, %s, %s) RETURNING id""",
-            (tenant.id, campaign_id, version, Jsonb(content), content_sha),
-        )["id"]
-        return AppliedConfig(tenant.id, campaign_id, cv_id, version, created=True)
-
-
-def campaign_id_for_slug(conn: Conn, tenant_id: UUID, slug: str) -> UUID:
-    with tenant_tx(conn, tenant_id):
-        row = maybe_one(conn, "SELECT id FROM gtm.campaigns WHERE slug = %s", (slug,))
-    if row is None:
-        raise LookupError(f"campaign {slug!r} not found for this tenant")
-    campaign_id: UUID = row["id"]
-    return campaign_id
