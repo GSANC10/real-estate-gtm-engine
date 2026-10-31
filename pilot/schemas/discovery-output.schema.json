@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "CandidateOut": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "missing_info": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Missing Info",
+          "type": "array"
+        },
+        "property": {
+          "$ref": "#/$defs/PropertyContext"
+        },
+        "representation": {
+          "default": "unknown",
+          "enum": [
+            "no_agent_stated",
+            "agent_involved",
+            "unknown"
+          ],
+          "title": "Representation",
+          "type": "string"
+        },
+        "signal": {
+          "enum": [
+            "fsbo_listing",
+            "public_intent_to_sell",
+            "business_relocation_with_property",
+            "expired_or_withdrawn_listing",
+            "active_listing_price_reduction",
+            "buyer_seeking_agent_or_financing"
+          ],
+          "title": "Signal",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 300,
+          "minLength": 10,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signal",
+        "summary",
+        "property",
+        "evidence"
+      ],
+      "title": "CandidateOut",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "quote": {
+          "maxLength": 600,
+          "minLength": 10,
+          "title": "Quote",
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 1000,
+          "minLength": 8,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "PropertyContext": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Address"
+        },
+        "asking_price": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asking Price"
+        },
+        "city": {
+          "maxLength": 80,
+          "minLength": 2,
+          "title": "City",
+          "type": "string"
+        },
+        "neighborhood": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Neighborhood"
+        },
+        "property_type": {
+          "default": "unknown",
+          "enum": [
+            "single_family",
+            "condo",
+            "townhouse",
+            "multi_family",
+            "commercial",
+            "land",
+            "unknown"
+          ],
+          "title": "Property Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "city"
+      ],
+      "title": "PropertyContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/CandidateOut"
+      },
+      "maxItems": 10,
+      "title": "Candidates",
+      "type": "array"
+    }
+  },
+  "required": [
+    "candidates"
+  ],
+  "title": "DiscoveryOut",
+  "type": "object"
+}

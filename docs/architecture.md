@@ -1,13 +1,14 @@
 # Architecture
 
-One Python program and one PostgreSQL database per customer.
+One Python program and one PostgreSQL database per customer. Which outside tools are involved,
+and what's set up, is in [tools.md](tools.md).
 
 ```mermaid
 flowchart LR
     CLI["gtm import / run / trace"] --> P["Python program (worker.py)"]
     P <-->|"jobs, results, master list"| DB[("PostgreSQL")]
-    P <-->|"fresh request per lead and step"| AI["Model (fake now; Qwen on Venice next)"]
-    P <-->|"read-only search"| SR["Search (fake now; Deepline next)"]
+    P <-->|"fresh request per lead and step"| AI["Model (fake now; a Venice-hosted model next)"]
+    P <-->|"read-only search and enrichment"| SR["Search (fake now; Deepline next)"]
 ```
 
 ## The loop

@@ -8,7 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from gtm.cli import export_contracts
+from gtm.cli import PILOT_SCHEMAS, export_contracts
+from gtm.pilot.models import EXPORTED as PILOT_EXPORTED
 
 ROOT = Path(__file__).resolve().parents[1]
 SEND_PATTERNS = re.compile(
@@ -22,8 +23,10 @@ def test_no_send_path_exists_in_code() -> None:
 
 
 def test_published_contract_schemas_match_the_code(tmp_path: Path) -> None:
-    for generated in export_contracts(tmp_path):
-        published = ROOT / "docs" / "contracts" / generated.name
+    pairs = [(g, ROOT / "docs" / "contracts") for g in export_contracts(tmp_path / "core")]
+    pairs += [(g, PILOT_SCHEMAS) for g in export_contracts(tmp_path / "pilot", PILOT_EXPORTED)]
+    for generated, folder in pairs:
+        published = folder / generated.name
         assert published.exists(), f"run: uv run gtm contracts export ({generated.name} missing)"
         assert json.loads(published.read_text()) == json.loads(generated.read_text()), (
             generated.name

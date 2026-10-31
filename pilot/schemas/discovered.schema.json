@@ -1,0 +1,291 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "quote": {
+          "maxLength": 600,
+          "minLength": 10,
+          "title": "Quote",
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 1000,
+          "minLength": 8,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "EvidenceCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "quote_in_search_result": {
+          "title": "Quote In Search Result",
+          "type": "boolean"
+        },
+        "search_result_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Search Result Date"
+        },
+        "search_result_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Search Result Title"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "url_in_search_results": {
+          "title": "Url In Search Results",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "url",
+        "url_in_search_results",
+        "quote_in_search_result",
+        "search_result_title",
+        "search_result_date"
+      ],
+      "title": "EvidenceCheck",
+      "type": "object"
+    },
+    "PropertyContext": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Address"
+        },
+        "asking_price": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asking Price"
+        },
+        "city": {
+          "maxLength": 80,
+          "minLength": 2,
+          "title": "City",
+          "type": "string"
+        },
+        "neighborhood": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Neighborhood"
+        },
+        "property_type": {
+          "default": "unknown",
+          "enum": [
+            "single_family",
+            "condo",
+            "townhouse",
+            "multi_family",
+            "commercial",
+            "land",
+            "unknown"
+          ],
+          "title": "Property Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "city"
+      ],
+      "title": "PropertyContext",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "raw_response_file": {
+          "title": "Raw Response File",
+          "type": "string"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Id"
+        },
+        "request_usd": {
+          "title": "Request Usd",
+          "type": "number"
+        },
+        "retrieved_at": {
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "search_id": {
+          "title": "Search Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "search_id",
+        "request_id",
+        "model",
+        "prompt_version",
+        "raw_response_file",
+        "retrieved_at",
+        "request_usd"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "discovery_checks": {
+      "items": {
+        "$ref": "#/$defs/EvidenceCheck"
+      },
+      "title": "Discovery Checks",
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "missing_info": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Info",
+      "type": "array"
+    },
+    "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "string"
+    },
+    "property": {
+      "$ref": "#/$defs/PropertyContext"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "representation": {
+      "enum": [
+        "no_agent_stated",
+        "agent_involved",
+        "unknown"
+      ],
+      "title": "Representation",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "discovered.v1",
+      "default": "discovered.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "signal": {
+      "enum": [
+        "fsbo_listing",
+        "public_intent_to_sell",
+        "business_relocation_with_property",
+        "expired_or_withdrawn_listing",
+        "active_listing_price_reduction",
+        "buyer_seeking_agent_or_financing"
+      ],
+      "title": "Signal",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "opportunity_id",
+    "signal",
+    "summary",
+    "property",
+    "representation",
+    "evidence",
+    "missing_info",
+    "discovery_checks",
+    "provenance"
+  ],
+  "title": "Discovered",
+  "type": "object"
+}

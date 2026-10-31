@@ -1,0 +1,163 @@
+{
+  "$defs": {
+    "Dimensions": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "maximum": 25,
+          "minimum": 0,
+          "title": "Evidence",
+          "type": "integer"
+        },
+        "intent": {
+          "maximum": 40,
+          "minimum": 0,
+          "title": "Intent",
+          "type": "integer"
+        },
+        "recency": {
+          "maximum": 15,
+          "minimum": 0,
+          "title": "Recency",
+          "type": "integer"
+        },
+        "relevance": {
+          "maximum": 20,
+          "minimum": 0,
+          "title": "Relevance",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "intent",
+        "evidence",
+        "relevance",
+        "recency"
+      ],
+      "title": "Dimensions",
+      "type": "object"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "source_url": {
+          "title": "Source Url",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 300,
+          "minLength": 5,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "statement",
+        "source_url"
+      ],
+      "title": "Fact",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "confidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "contradictions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Contradictions",
+      "type": "array"
+    },
+    "dimensions": {
+      "$ref": "#/$defs/Dimensions"
+    },
+    "explanation": {
+      "maxLength": 600,
+      "minLength": 10,
+      "title": "Explanation",
+      "type": "string"
+    },
+    "facts": {
+      "items": {
+        "$ref": "#/$defs/Fact"
+      },
+      "minItems": 1,
+      "title": "Facts",
+      "type": "array"
+    },
+    "inferences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Inferences",
+      "type": "array"
+    },
+    "missing_info": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Info",
+      "type": "array"
+    },
+    "next_step": {
+      "maxLength": 300,
+      "minLength": 5,
+      "title": "Next Step",
+      "type": "string"
+    },
+    "opportunity_id": {
+      "title": "Opportunity Id",
+      "type": "string"
+    },
+    "recommendation": {
+      "enum": [
+        "include",
+        "research_more",
+        "reject"
+      ],
+      "title": "Recommendation",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "scored.v1",
+      "default": "scored.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "score": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Score",
+      "type": "integer"
+    },
+    "scored_by": {
+      "title": "Scored By",
+      "type": "string"
+    }
+  },
+  "required": [
+    "opportunity_id",
+    "score",
+    "dimensions",
+    "explanation",
+    "facts",
+    "inferences",
+    "contradictions",
+    "missing_info",
+    "confidence",
+    "recommendation",
+    "next_step",
+    "scored_by"
+  ],
+  "title": "Scored",
+  "type": "object"
+}

@@ -11,6 +11,9 @@ from uuid import UUID
 
 from gtm.contracts import EXPORTED
 from gtm.db import connect, dsn_from_env
+from gtm.pilot.cli import add_pilot_parser, run_pilot
+from gtm.pilot.common import REPO_ROOT
+from gtm.pilot.models import EXPORTED as PILOT_EXPORTED
 
 FAKE_ONLY = "only --fake-providers is available until the Venice and Deepline adapters land"
 
@@ -19,10 +22,13 @@ def _print(value: Any) -> None:
     print(json.dumps(value, indent=2, default=str))
 
 
-def export_contracts(directory: Path) -> list[Path]:
+PILOT_SCHEMAS = REPO_ROOT / "pilot" / "schemas"
+
+
+def export_contracts(directory: Path, models: dict[str, Any] | None = None) -> list[Path]:
     directory.mkdir(parents=True, exist_ok=True)
     written = []
-    for name, model in EXPORTED.items():
+    for name, model in (EXPORTED if models is None else models).items():
         path = directory / f"{name}.schema.json"
         path.write_text(json.dumps(model.model_json_schema(), indent=2, sort_keys=True) + "\n")
         written.append(path)
@@ -53,13 +59,19 @@ def main(argv: list[str] | None = None) -> None:
     sp = sub.add_parser("suppress", help="add an email to the do-not-contact list")
     sp.add_argument("--email", required=True)
 
-    ct = sub.add_parser("contracts", help="export JSON Schemas for the contracts")
+    ct = sub.add_parser(
+        "contracts", help="export JSON Schemas (pilot schemas go to pilot/schemas/)"
+    )
     ct.add_argument("action", choices=["export"])
     ct.add_argument("directory", type=Path, nargs="?", default=Path("docs/contracts"))
 
+    add_pilot_parser(sub)
+
     args = parser.parse_args(argv)
 
-    if args.command == "demo":
+    if args.command == "pilot":
+        run_pilot(args)
+    elif args.command == "demo":
         if not args.fake_providers:
             parser.error(FAKE_ONLY)
         from gtm.demo import run_demo
@@ -104,7 +116,10 @@ def main(argv: list[str] | None = None) -> None:
         suppress_email(connect(dsn_from_env()), args.email)
         _print({"suppressed": True})
     elif args.command == "contracts":
-        for path in export_contracts(args.directory):
+        for path in [
+            *export_contracts(args.directory),
+            *export_contracts(PILOT_SCHEMAS, PILOT_EXPORTED),
+        ]:
             print(path)
 
 

@@ -9,6 +9,7 @@ dist/
 
 # Private brokerage data never belongs in this public repo.
 config/private/
+gtm-data/
 *.private.yaml
 *.private.csv
 .env

@@ -1,0 +1,207 @@
+{
+  "$defs": {
+    "Pricing": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_on": {
+          "title": "Checked On",
+          "type": "string"
+        },
+        "input_usd_per_mtok": {
+          "minimum": 0,
+          "title": "Input Usd Per Mtok",
+          "type": "number"
+        },
+        "output_usd_per_mtok": {
+          "minimum": 0,
+          "title": "Output Usd Per Mtok",
+          "type": "number"
+        },
+        "web_search_usd_per_request": {
+          "minimum": 0,
+          "title": "Web Search Usd Per Request",
+          "type": "number"
+        }
+      },
+      "required": [
+        "checked_on",
+        "input_usd_per_mtok",
+        "output_usd_per_mtok",
+        "web_search_usd_per_request"
+      ],
+      "title": "Pricing",
+      "type": "object"
+    },
+    "SearchTask": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9_]{2,40}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "signal": {
+          "enum": [
+            "fsbo_listing",
+            "public_intent_to_sell",
+            "business_relocation_with_property",
+            "expired_or_withdrawn_listing",
+            "active_listing_price_reduction",
+            "buyer_seeking_agent_or_financing"
+          ],
+          "title": "Signal",
+          "type": "string"
+        },
+        "task": {
+          "maxLength": 500,
+          "minLength": 10,
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "signal",
+        "task"
+      ],
+      "title": "SearchTask",
+      "type": "object"
+    },
+    "SignalRule": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "description"
+      ],
+      "title": "SignalRule",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "areas": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Areas",
+      "type": "array"
+    },
+    "lookback_days": {
+      "maximum": 365,
+      "minimum": 1,
+      "title": "Lookback Days",
+      "type": "integer"
+    },
+    "market": {
+      "title": "Market",
+      "type": "string"
+    },
+    "max_candidates": {
+      "maximum": 30,
+      "minimum": 1,
+      "title": "Max Candidates",
+      "type": "integer"
+    },
+    "max_output_tokens": {
+      "maximum": 16000,
+      "minimum": 500,
+      "title": "Max Output Tokens",
+      "type": "integer"
+    },
+    "max_per_search": {
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Max Per Search",
+      "type": "integer"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "pricing": {
+      "$ref": "#/$defs/Pricing"
+    },
+    "priority_areas": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Priority Areas",
+      "type": "array"
+    },
+    "reasoning_effort": {
+      "default": "low",
+      "enum": [
+        "none",
+        "low",
+        "high",
+        "max"
+      ],
+      "title": "Reasoning Effort",
+      "type": "string"
+    },
+    "report_size": {
+      "maximum": 15,
+      "minimum": 1,
+      "title": "Report Size",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "pilot_criteria.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "searches": {
+      "items": {
+        "$ref": "#/$defs/SearchTask"
+      },
+      "maxItems": 10,
+      "minItems": 1,
+      "title": "Searches",
+      "type": "array"
+    },
+    "signals": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SignalRule"
+      },
+      "propertyNames": {
+        "enum": [
+          "fsbo_listing",
+          "public_intent_to_sell",
+          "business_relocation_with_property",
+          "expired_or_withdrawn_listing",
+          "active_listing_price_reduction",
+          "buyer_seeking_agent_or_financing"
+        ]
+      },
+      "title": "Signals",
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "market",
+    "areas",
+    "lookback_days",
+    "max_candidates",
+    "max_per_search",
+    "report_size",
+    "model",
+    "max_output_tokens",
+    "pricing",
+    "signals",
+    "searches"
+  ],
+  "title": "Criteria",
+  "type": "object"
+}

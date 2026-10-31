@@ -1,0 +1,58 @@
+# Discovery criteria for the opportunity-report pilot. No personal data belongs here.
+# Change areas, signals, and searches after the agent says what he'd pursue (pilot/README.md).
+schema_version: pilot_criteria.v1
+market: the Los Angeles area (Los Angeles County, California)
+areas: [Torrance, Redondo Beach, Manhattan Beach, Hermosa Beach, El Segundo, Palos Verdes Estates,
+  Rancho Palos Verdes, Rolling Hills Estates, Lomita, Gardena, Hawthorne, Lawndale, Carson,
+  Los Angeles, Pasadena, Glendale, Burbank, Santa Monica, Culver City, Beverly Hills,
+  West Hollywood, Inglewood, Long Beach, Downey, Whittier, Alhambra, Arcadia, Monrovia,
+  West Covina, Pomona, Santa Clarita]
+priority_areas: [Torrance, Redondo Beach, Manhattan Beach, Hermosa Beach, El Segundo]
+lookback_days: 45
+max_candidates: 12   # stop discovery at this many distinct candidates
+max_per_search: 3    # ask each search for at most this many
+report_size: 5       # the report shows the best this many; raise to 10-15 once quality is good
+model: deepseek-v4-1-flash-uncensored
+reasoning_effort: low
+max_output_tokens: 4000
+pricing:
+  # From Venice's public model list and pricing page, checked 2026-10-30. Recheck before relying on it.
+  checked_on: "2026-10-30"
+  input_usd_per_mtok: 0.33
+  output_usd_per_mtok: 1.32
+  web_search_usd_per_request: 0.01
+signals:
+  fsbo_listing:
+    enabled: true
+    description: The owner is advertising the property for sale without an agent (for sale by owner).
+  public_intent_to_sell:
+    enabled: true
+    description: A property owner publicly states they plan to sell a specific home or building.
+  business_relocation_with_property:
+    enabled: true
+    description: A business announces a move, closure, or relocation and the source says it owns its building or land.
+  expired_or_withdrawn_listing:
+    enabled: false  # usually visible only in the MLS, which the agent already has
+    description: A listing that expired or was withdrawn and is no longer represented by an agent.
+  active_listing_price_reduction:
+    enabled: false  # listed with another agent, so not a listing opportunity for him
+    description: An active listing with a recent price cut.
+  buyer_seeking_agent_or_financing:
+    enabled: false  # turn on only if the agent wants buyers; mortgage help also needs the right license
+    description: Someone publicly asks for a real estate agent or mortgage help to buy a home in the areas served.
+searches:
+  - id: fsbo_south_bay
+    signal: fsbo_listing
+    task: Homes for sale by owner (FSBO, no agent) in Torrance, Redondo Beach, Manhattan Beach, Hermosa Beach, or El Segundo, California, posted recently
+  - id: fsbo_la_county
+    signal: fsbo_listing
+    task: Homes for sale by owner (FSBO, no agent) elsewhere in Los Angeles County, California, posted in the last few weeks
+  - id: owner_plans_to_sell
+    signal: public_intent_to_sell
+    task: Los Angeles area property owners, South Bay first, publicly saying they plan to sell a home or building soon
+  - id: business_relocating
+    signal: business_relocation_with_property
+    task: Los Angeles area businesses, South Bay first, announcing a move or closure that involves selling the building they own
+  - id: buyer_asking_for_agent
+    signal: buyer_seeking_agent_or_financing
+    task: People publicly asking for a real estate agent or a mortgage to buy a home in the South Bay or elsewhere in Los Angeles County, posted recently

@@ -1,18 +1,48 @@
 # real-estate-gtm-engine
 
-A lead pipeline for a real estate brokerage. It researches each contact with cited evidence and
-qualifies them on two criteria only: service area and an expressed property need. For qualified
-contacts it writes a first email for a person to review. It never sends email.
+Lead tools for a real estate agent, in two parts:
+- **The pilot (`gtm pilot`):** finds publicly documented selling opportunities in the Los Angeles
+  area with live web search. It checks every source and scores what survives, then produces a
+  short report for the agent to judge. [pilot/README.md](pilot/README.md)
+- **The contact pipeline (`gtm run`):** researches each imported contact with cited evidence and
+  qualifies them on two criteria only, service area and an expressed property need. For qualified
+  contacts it writes a first email for a person to review.
+
+Neither part ever contacts anyone.
 
 > **Status: early development.** Everything under "What works today" is verified locally with
-> **fake** AI, search, and email providers. Venice (the AI) and Deepline (search and contact data)
-> are not connected yet. See [docs/STATUS.md](docs/STATUS.md).
+> **fake** providers and synthetic data. The pilot's live Venice discovery hasn't run yet.
+> Deepline and Parallel aren't connected to this code. See [docs/STATUS.md](docs/STATUS.md).
 
-## How it works
+## The pilot
+
+```mermaid
+flowchart LR
+    K["criteria.yaml: areas, signals, searches"] --> D["discover: Venice web search + DeepSeek (paid)"]
+    D --> V["verify: refetch sources, check quotes, dates, area, duplicates (free)"]
+    V --> S["/score-leads in Claude Code, then a code check"]
+    S --> R["report.html + report.csv"]
+    R --> A["The agent marks pursue / maybe / no"]
+```
+
+```bash
+uv run gtm pilot discover                          # plan and worst-case cost; sends nothing
+uv run gtm pilot discover --label first-five --only fsbo_south_bay --execute
+uv run gtm pilot discover --resume <run> --execute  # the rest; saved searches aren't repaid
+uv run gtm pilot verify --run-dir <run>
+#   in Claude Code: /score-leads <run>
+uv run gtm pilot report --run-dir <run>
+uv run gtm pilot status --run-dir <run>            # where a run stands and the next command
+```
+Run data goes to `~/gtm-data/pilot/<date>/<run id>/`, outside git. Every request, response,
+source snapshot, and cost is kept there. Full runbook, costs, and the questions to ask the agent:
+[pilot/README.md](pilot/README.md).
+
+## How the contact pipeline works
 
 ```mermaid
 flowchart TD
-    D["Discovery (planned): Qwen on Venice + Deepline find people"] --> L[("Master list (PostgreSQL)")]
+    D["Discovery (planned): from pilot results, enriched by Deepline"] --> L[("Master list (PostgreSQL)")]
     I["Import a CSV of contacts"] --> L
     L --> R["Research: model + read-only search tools"]
     R --> C{"Evidence and qualification pass?"}
@@ -32,12 +62,28 @@ flowchart TD
   behind every rejection, and every step's saved result. A stopped run picks up where it left off
   without repeating paid calls.
 
+## Tools
+| Tool | Role |
+|---|---|
+| Pi | Coding agent on the shared VM, for development and trying tools by hand (`gpi` starts it on the pilot model) |
+| Venice | Hosts the model (DeepSeek V4.1 Flash Uncensored) and runs the pilot's web searches |
+| Claude Code | Runs the `/score-leads` skill on verified opportunities |
+| Deepline | Contact enrichment, by hand and only with approval (installed on the VM; not used by the pilot's code) |
+| Parallel | Not used: the pilot searches through Venice |
+| Supabase | Hosted PostgreSQL for the contact pipeline (planned; the pilot uses files) |
+
+Pi is for exploring; `gtm pilot` and `gtm run` are the repeatable commands. What's verified and
+what isn't: [docs/tools.md](docs/tools.md).
+
 ## What works today
 
-Verified 2026-10-28 with fake providers on PostgreSQL 17 (`uv run pytest`: 40 passed).
+Verified 2026-10-30 with fake providers and synthetic data on PostgreSQL 17 (`uv run pytest`: 60 passed).
 
 | Feature | Status |
 |---|---|
+| Pilot discovery: request building, dry-run plan, cost log, budget stop, no-sources stop, resume without repaying | Works (fake Venice); live run not done yet |
+| Pilot verification: quotes, dates, area, agent status, contradictions, duplicates within and across runs | Works (fake web pages) |
+| Pilot scoring check and HTML/CSV report with phones and emails removed | Works |
 | Brokerage configuration in one YAML file, saved with each run | Works |
 | CSV import with dedupe, do-not-contact list, and versioned records | Works |
 | Research with a bounded, read-only search loop | Works (fake model and search) |
@@ -46,7 +92,7 @@ Verified 2026-10-28 with fake providers on PostgreSQL 17 (`uv run pytest`: 40 pa
 | Email rule checks plus a model sentence check, before any draft | Works (fake checker) |
 | Resume after a stop, with no repeated calls | Works |
 | Per-job call limits and a spending cap per run | Works |
-| Discovery, Venice and Deepline connections, Gmail drafts | Not built yet ([roadmap](#roadmap)) |
+| Venice, Deepline, and Parallel connections for `gtm run`; Gmail drafts | Not built yet ([roadmap](#roadmap)) |
 
 ## Quick start
 
@@ -95,6 +141,8 @@ gtm trace --lead <lead-id>
 ```
 
 ## Documentation
+- [pilot/README.md](pilot/README.md): the opportunity-report pilot: runbook, costs, and what counts as an opportunity
+- [docs/tools.md](docs/tools.md): what each outside tool does, and what's actually set up
 - [docs/architecture.md](docs/architecture.md): the program, database, and safeguards
 - [docs/context-handoffs.md](docs/context-handoffs.md): what each step receives, with a fictional trace
 - [docs/contracts/](docs/contracts/): JSON Schemas for every stored record and model input/output
@@ -105,20 +153,24 @@ gtm trace --lead <lead-id>
 ## Repository layout
 ```
 src/gtm/            cli, config, contracts, db, queue, context, calls, worker, runs, validation, trace, demo
+src/gtm/pilot/      the pilot: models, discover, verify, report, cli
 src/gtm/pipeline/   importing, research, checks, write
 src/gtm/providers/  provider interfaces and deterministic fakes
 supabase/migrations the database schema
 prompts/            versioned role instructions (researcher, claim_check, writer, email_check)
+pilot/              criteria, the versioned discovery prompt, and JSON Schemas for each pilot file
+.claude/skills/     score-leads (the pilot's scoring skill)
 config/examples/    a fictional brokerage and fictional contacts
-tests/              pipeline, resume, identities, limits, email checks, repo rules
+tests/              pilot, pipeline, resume, identities, limits, email checks, repo rules
 ```
 
 ## Roadmap
-1. Venice and Deepline connections, plus a provider check command.
-2. Discovery: Qwen on Venice decides what to search, Deepline searches and finds emails, and new
-   people are deduplicated against the master list.
-3. Qualification rules for discovered people: which public signals count as a real need to buy or sell.
-4. Gmail drafts, created for review only.
+1. **Pilot, live:** one search to prove Venice web search returns real sources, then five
+   verified opportunities reviewed by the agent; 10–15 if he finds them useful.
+2. Tune the criteria from his verdicts: which signals, areas, and searches find what he'd pursue.
+3. Deepline enrichment for opportunities he chooses, with an agreed spending cap.
+4. Venice and Deepline connections for `gtm run`; pilot results feed the master list, deduplicated.
+5. Gmail drafts, created for review only.
 
 ## Public repository rules
 This repository is public. It contains only fictional people, brokerages, and web pages, all on

@@ -27,7 +27,8 @@ ALLOWED_EMAIL_DOMAINS = (
     "users.noreply.github.com",
 )
 DATA_SUFFIXES = {".yaml", ".yml", ".csv"}
-DATA_ALLOWED_PREFIXES = ("config/examples/", ".github/workflows/")
+# pilot/ holds discovery criteria only (areas, signal types, search tasks), never personal data.
+DATA_ALLOWED_PREFIXES = ("config/examples/", ".github/workflows/", "pilot/")
 
 
 def tracked_files() -> list[Path]:
